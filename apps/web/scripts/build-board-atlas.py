@@ -71,8 +71,12 @@ podium = mild_left.crop((70, 350, 300, 680)).resize((164, 232), Image.Resampling
 atlas.paste(podium.convert("RGBA"), (0, 580))
 regions["podium"] = [0, 580, 164, 232]
 
-start = mild_left.crop((176, 105, 610, 250)).resize((268, 88), Image.Resampling.LANCZOS)
-atlas.paste(start.convert("RGBA"), (170, 580))
+start = np.array(mild_left.crop((176, 105, 610, 250)).convert("RGBA"))
+blue = ((start[:, :, 2].astype(float) > start[:, :, 0] * 1.12)
+        & (start[:, :, 2].astype(float) > start[:, :, 1] * 1.12))
+start[blue, 3] = 0
+start = Image.fromarray(start).resize((268, 88), Image.Resampling.LANCZOS)
+atlas.paste(start, (170, 580))
 regions["start"] = [170, 580, 268, 88]
 
 # Source rectangles include each printed tile's full border and lettering.
