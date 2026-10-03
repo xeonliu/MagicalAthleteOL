@@ -465,3 +465,25 @@ it("keeps a queued Bot throw automatic even while the local throw is settling", 
   expect(scene().dice.autoThrow).toBe(true);
   expect(scene().focus?.athleteId).toBe("legs");
 });
+
+it("plays a star award after landing and preserves the authoritative score", async () => {
+  const { playCharacterScoreSound } = await import("./gameAudio");
+  vi.mocked(playCharacterScoreSound).mockClear();
+  await join(game({ trackName: "WildWilds" }));
+  const final = game({ trackName: "WildWilds" });
+  final.players[0].activeRacers[0].position = 1;
+  final.players[0].activeRacers[0].points = 1;
+  const message: ServerMessage = { type: "STATE_UPDATED", roomId: "TEST", revision: 2, game: final, rollResults: [], events: [
+    { type: "RACER_MOVED", playerId: "human", athleteId: "banana", from: 0, to: 1 },
+  ] };
+  await receive(message);
+  expect(playCharacterScoreSound).not.toHaveBeenCalled();
+  await advance(2800);
+  expect(scene().players[0].activeRacers[0].position).toBe(1);
+  expect(scene().players[0].activeRacers[0].points).toBe(1);
+  expect(scene().moment?.scoreAmount).toBe(1);
+  expect(playCharacterScoreSound).toHaveBeenCalledTimes(1);
+  await advance(4000);
+  expect(playCharacterScoreSound).toHaveBeenCalledTimes(1);
+  expect(scene().players[0].activeRacers[0].points).toBe(1);
+});

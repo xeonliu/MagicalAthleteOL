@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerState, RoomSnapshot } from "./protocol";
-import { actionMoment, eventText, rollOffPresentation } from "./eventPresentation";
+import { landingScoreMoment, actionMoment, eventText, rollOffPresentation } from "./eventPresentation";
 
 const players = [
   { id: "p1", name: "小明", rollValues: [6, 2], activeRacers: [{ id: "centaur", name: "Centaur" }], team: [] },
@@ -133,4 +133,19 @@ describe("race feed sentences", () => {
     expect(eventText({ type: "TRIP_RECOVERED", playerId: "p1", athleteId: "centaur" }, players))
       .toBe("小明 的半人马从绊倒中恢复，跳过本次移动");
   });
+});
+
+it.each([1, 13])("presents a star award for landing on Wild Wilds space %i", (to) => {
+  const moment = landingScoreMoment({ type: "RACER_MOVED", playerId: "p2", athleteId: "banana", from: 0, to }, "WildWilds", players)!;
+  expect(moment.target.athleteId).toBe("banana");
+  expect(moment.scoreAmount).toBe(1);
+  expect(moment.effect).toBe("获得 1 分");
+});
+
+it("does not award points for passing, staying still, or the Standard board", () => {
+  const move = { type: "RACER_MOVED", playerId: "p2", athleteId: "banana", from: 0, to: 2 };
+  expect(landingScoreMoment(move, "WildWilds", players)).toBeNull();
+  expect(landingScoreMoment({ ...move, from: 1, to: 1 }, "WildWilds", players)).toBeNull();
+  expect(landingScoreMoment({ ...move, to: 1 }, "Standard", players)).toBeNull();
+  expect(landingScoreMoment({ ...move, type: "RACER_WARPED", to: 13 }, "WildWilds", players)?.scoreAmount).toBe(1);
 });

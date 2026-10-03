@@ -1,3 +1,4 @@
+import { RaceRewards } from "./components/RaceRewards";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
@@ -13,7 +14,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSPropertie
 import { decisionResolution, decisionTitle, decisionPrompt, decisionOptionLabel, resolvedDecisionDialog, type DecisionDialogState } from "./decisionPresentation";
 import { ActionMoment } from "./components/ActionMoment";
 import { TauntPanel, propEmoji } from "./components/TauntPanel";
-import { actionMoment, eventText, isRedundantAbilityEvent, rollOffPresentation, type ActionMoment as Moment } from "./eventPresentation";
+import { actionMoment, landingScoreMoment, eventText, isRedundantAbilityEvent, rollOffPresentation, type ActionMoment as Moment } from "./eventPresentation";
 import { RaceTrack } from "./components/RaceTrack";
 import { actionId, clearSession, GameClient, loadSession, roomFromPath, saveSession } from "./gameClient";
 import type { ActiveRacer, AthleteCard, ClientIntent, GameEvent, PropThrow, RoomSnapshot, ServerMessage } from "./protocol";
@@ -726,6 +727,16 @@ export default function App() {
               await pause(use3DRaceTable ? 340 : 220);
             }
           }
+          const award = landingScoreMoment(event, working.game.trackName, working.game.players, t);
+          if (award) {
+            if (cancelled()) return;
+            racer.points += award.scoreAmount!;
+            if (!publish()) return;
+            setMoment(award);
+            playCharacterScoreSound();
+            await pause(1600);
+            if (cancelled()) return;
+          }
         }
       }
       if (event.type === "RACER_TRIPPED" && event.athleteId) {
@@ -895,7 +906,7 @@ export default function App() {
 
       {game!.phase === "RACING" && (
         <section className="race-stage stage">
-          <div className="race-heading"><div><p className="kicker">RACE {game!.raceNumber} / 4</p><h2>{tracks[game!.raceNumber - 1]}</h2></div><div className="reward"><span>🏆 {game!.raceRewards[0]}</span><span>◉ {game!.raceRewards[1]}</span></div></div>
+          <div className="race-heading"><div><p className="kicker">RACE {game!.raceNumber} / 4</p><h2>{tracks[game!.raceNumber - 1]}</h2></div><RaceRewards rewards={game!.raceRewards} /></div>
           {moment && !use3DRaceTable && <div className="race-moment-slot"><ActionMoment moment={moment} /></div>}
           {use3DRaceTable ? <Suspense fallback={<div className="race-table-loading" aria-label={t("race.loading")} />}>
             <RaceTableScene decision={decisionPanel} taunts={taunts} onPropImpact={handlePropImpact} turnKey={rollAnimation?.autoThrow ? `playback-${rollAnimation.revision}-${rollAnimation.index}` : raceDiceTurnKey(game!, playbackBusy)} moment={moment} focus={cameraFocus ?? (game!.pendingDecision ? { athleteId: game!.pendingDecision.athleteId, playerId: game!.pendingDecision.playerId, close: true } : raceRollFocus(game!))} activePlayerId={game!.activePlayerId} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} dice={{

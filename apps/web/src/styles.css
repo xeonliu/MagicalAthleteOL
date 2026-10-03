@@ -530,3 +530,13 @@ input:focus { border-color: #287fc2; box-shadow: 0 0 0 3px rgba(40,127,194,.18);
 .immersive-race:has(.spectator-bar) .race-heading { top: 124px; }
 .immersive-race:has(.spectator-bar) .race-console { top: 202px; }
 .immersive-race:has(.spectator-bar) .race-leaderboard { top: 260px; }
+
+.reward img { display: block; width: 48px; height: 48px; object-fit: contain; }
+.score-star-award { width: 64px; height: 64px; object-fit: contain; justify-self: center; animation: score-star-award 1.6s ease-out both; }
+@keyframes score-star-award {
+  0% { opacity: 0; transform: translateY(20px) scale(.3) rotate(-25deg); }
+  30% { opacity: 1; transform: translateY(-6px) scale(1.2) rotate(10deg); filter: drop-shadow(0 0 12px #ffd34e); }
+  55% { transform: translateY(0) scale(1) rotate(0); }
+  100% { transform: translateY(-5px); filter: drop-shadow(0 0 4px #ffd34e); }
+}
+@media (prefers-reduced-motion: reduce) { .score-star-award { animation: none; } }

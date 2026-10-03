@@ -247,7 +247,10 @@
     "hidePieces": "隐藏棋子",
     "showPieces": "显示棋子",
     "demoMove": "演示移动",
-    "abilityCloseUp": "技能特写"
+    "abilityCloseUp": "技能特写",
+    "rewards": "比赛奖励",
+    "raceRewards": "第 {{race}} 场：奖杯 {{gold}} / 银花 {{silver}}",
+    "demoScore": "演示落格 +1 分（含音效）"
   },
   "audio": {
     "label": "背景音乐",

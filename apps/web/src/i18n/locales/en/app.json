@@ -247,7 +247,10 @@
     "hidePieces": "Hide pieces",
     "showPieces": "Show pieces",
     "demoMove": "Demo move",
-    "abilityCloseUp": "Ability close-up"
+    "abilityCloseUp": "Ability close-up",
+    "rewards": "Race rewards",
+    "raceRewards": "Race {{race}}: trophy {{gold}} / rosette {{silver}}",
+    "demoScore": "Demo landing +1 point (with sound)"
   },
   "audio": {
     "label": "Background music",
