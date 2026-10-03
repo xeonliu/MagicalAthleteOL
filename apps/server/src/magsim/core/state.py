@@ -124,6 +124,8 @@ class GameState:
     rules: GameRules = field(default_factory=GameRules)
     current_racer_idx: int = 0
     next_turn_override: int | None = None
+    extra_turn_queue: list[int] = field(default_factory=list)
+    interrupted_turn_idx: int | None = None
     roll_state: RollState = field(default_factory=RollState)
 
     queue: list[ScheduledEvent] = field(default_factory=list)
@@ -192,7 +194,9 @@ class GameState:
             sorted((se.event.phase, se.priority, repr(se.event)) for se in self.queue),
         )
 
-        return hash((racer_data, board_data, roll_data, queue_data))
+        return hash((racer_data, board_data, roll_data, queue_data,
+                     self.current_racer_idx, self.next_turn_override,
+                     tuple(self.extra_turn_queue), self.interrupted_turn_idx))
 
 
 @dataclass(frozen=True)

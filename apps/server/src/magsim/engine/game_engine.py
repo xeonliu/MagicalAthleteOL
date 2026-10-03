@@ -440,6 +440,20 @@ class GameEngine:
         if not self.state.race_active:
             return
 
+        if self.state.extra_turn_queue:
+            if self.state.interrupted_turn_idx is None:
+                self.state.interrupted_turn_idx = self.state.current_racer_idx
+            # A correct Genius prediction survives a simultaneous Skipper trigger.
+            if self.state.next_turn_override is not None:
+                self.state.extra_turn_queue.append(self.state.next_turn_override)
+                self.state.next_turn_override = None
+            while self.state.extra_turn_queue:
+                next_idx = self.state.extra_turn_queue.pop(0)
+                if self.state.racers[next_idx].active:
+                    self.state.current_racer_idx = next_idx
+                    self.log_info(f"Extra Turn: {self.get_racer(next_idx).repr} goes immediately!")
+                    return
+
         if self.state.next_turn_override is not None:
             next_idx = self.state.next_turn_override
             self.state.next_turn_override = None
@@ -449,7 +463,10 @@ class GameEngine:
             )
             return
 
-        curr = self.state.current_racer_idx
+        curr = self.state.interrupted_turn_idx
+        if curr is None:
+            curr = self.state.current_racer_idx
+        self.state.interrupted_turn_idx = None
         n = len(self.state.racers)
         next_idx = (curr + 1) % n
 

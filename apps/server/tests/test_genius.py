@@ -57,4 +57,12 @@ def test_skipper_still_takes_the_next_turn_after_a_correct_one():
     ], dice_rolls=[1], seed=0)
     scenario.engine.agents[0].make_selection_decision = lambda *args, **kwargs: 1
     scenario.engine.run_turn()
-    assert scenario.engine.state.next_turn_override == 2
+    assert scenario.engine.state.next_turn_override == 0
+    assert scenario.engine.state.extra_turn_queue == [2]
+    scenario.engine.advance_turn()
+    assert scenario.engine.state.current_racer_idx == 2
+    scenario.set_dice_rolls([2])
+    scenario.run_turn()
+    assert scenario.engine.state.current_racer_idx == 0
+    scenario.run_turn()
+    assert scenario.engine.state.current_racer_idx == 1

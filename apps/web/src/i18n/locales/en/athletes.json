@@ -75,7 +75,7 @@
     "name": "Genius",
     "abilityTitle": "Think Good",
     "summary": "I can predict what number I'll roll for my main move. If I'm right, I take another turn after this one.",
-    "details": "With Skipper on the track, if I predict a 1 and roll it, Skipper's later-triggering power steals the next turn. In a double racer game only the Genius gets the extra turn, not my other racer."
+    "details": "With Skipper on the track, a correctly predicted 1 gives Skipper an immediate turn followed by the Genius extra turn, then the original order resumes. In a double racer game only the Genius gets the extra turn, not my other racer."
   },
   "gunk": {
     "name": "Gunk",
@@ -188,8 +188,8 @@
   "skipper": {
     "name": "Skipper",
     "abilityTitle": "Salty Dog",
-    "summary": "When anyone rolls a 1 for their main move, I go next in turn order.",
-    "details": "After I go, turn order continues to my left. If I roll a 1, I go again. With Inchworm on the track, resolve its move first. In a double racer game I go next, and then my other racer."
+    "summary": "When anyone rolls a 1 for their main move, I immediately gain an extra turn.",
+    "details": "After the extra turns, resume with the racer who was originally due next; intervening racers keep their turns. If several racers have this power, each keeps its extra turn. Rolling another 1 triggers it again. Resolve Inchworm's move first. In a double racer game, only the racer with this power receives the extra turn."
   },
   "stickler": {
     "name": "Stickler",
