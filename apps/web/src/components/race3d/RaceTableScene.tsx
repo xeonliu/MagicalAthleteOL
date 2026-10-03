@@ -1,6 +1,6 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CanvasTexture, DoubleSide, ExtrudeGeometry, PCFSoftShadowMap, RepeatWrapping, Shape, SRGBColorSpace, TextureLoader, Vector3 } from "three";
 import { RaceActionIsland } from "../RaceActionIsland";
 import { FinishFireworks } from "./FinishFireworks";
@@ -24,6 +24,7 @@ import { boardTextureScale, racePixelRatio } from "./renderQuality";
 import { festivalArtEnabled } from "../../artPack";
 
 export interface RaceTableSceneProps {
+  decision?: ReactNode;
   taunts?: PropThrow[];
   onPropImpact?: (event: PropThrow) => void;
   turnKey?: string;
@@ -299,7 +300,7 @@ function Scene({ turnKey, moment, taunts = [], onPropImpact, players, finishLine
   </>;
 }
 
-function HtmlFallback({ players, finishLine, dice, moment }: RaceTableSceneProps) {
+function HtmlFallback({ players, finishLine, dice, moment, decision }: RaceTableSceneProps) {
   const { t } = useTranslation();
   return <section className="race-table-fallback" aria-label={t("race3d.position")}>
     <div className="fallback-racers">
@@ -309,7 +310,7 @@ function HtmlFallback({ players, finishLine, dice, moment }: RaceTableSceneProps
       </div>))}
     </div>
     <div className={dice.targetValue ? "fallback-die landed" : "fallback-die"}>{dice.targetValue ?? dice.restingValue}</div>
-    <RaceActionIsland moment={moment} busy={!!dice.playbackBusy} status={dice.playbackBusy ? t("race3d.playingAction") : dice.enabled ? t("race3d.dragToThrow") : t("race3d.waitingFor", { name: dice.activePlayerName })}>
+    <RaceActionIsland decision={decision} moment={moment} busy={!!dice.playbackBusy} status={dice.playbackBusy ? t("race3d.playingAction") : dice.enabled ? t("race3d.dragToThrow") : t("race3d.waitingFor", { name: dice.activePlayerName })}>
       <button className="dice-throw-button" disabled={!dice.enabled} onClick={() => dice.onThrow(actionId())}>{t("race3d.roll")}</button>
     </RaceActionIsland>
   </section>;
@@ -349,7 +350,7 @@ export function RaceTableScene(props: RaceTableSceneProps) {
       <button aria-pressed={!overview} onClick={() => setOverview(false)}>{t("race3d.follow")}</button>
       <button aria-pressed={overview} onClick={() => setOverview(true)}>{t("race3d.overview")}</button>
     </div>
-    <RaceActionIsland moment={props.moment} busy={diceState !== "ready" || !!props.dice.playbackBusy} status={status}>
+    <RaceActionIsland decision={props.decision} moment={props.moment} busy={diceState !== "ready" || !!props.dice.playbackBusy} status={status}>
       <button className="dice-throw-button" disabled={!props.dice.enabled || diceState !== "ready"} onClick={() => {
         const throwId = actionId();
         if (diceLauncher.current?.(throwId)) props.dice.onThrow(throwId);

@@ -25,7 +25,7 @@ vi.mock("./gameAudio", () => ({
   playCharacterScoreSound: vi.fn(), playMoveSound: vi.fn(), playFireworkSound: vi.fn(), unlockGameAudio: vi.fn(),
   playTripSound: vi.fn(), playPropImpactSound: vi.fn(),
 }));
-vi.mock("./components/race3d/RaceTableScene", () => ({ RaceTableScene: (_props: RaceTableSceneProps) => null }));
+vi.mock("./components/race3d/RaceTableScene", () => ({ RaceTableScene: (props: RaceTableSceneProps) => <>{props.decision}</> }));
 
 let App: typeof import("./App").default;
 let Scene: typeof import("./components/race3d/RaceTableScene").RaceTableScene;

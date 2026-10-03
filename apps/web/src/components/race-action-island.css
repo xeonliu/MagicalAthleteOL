@@ -2,8 +2,9 @@
 .table-dice-hud.race-action-island,
 .immersive-race .table-dice-hud.race-action-island {
   --island-spring: cubic-bezier(.22, 1.28, .36, 1);
+  --island-panel-height: min(42dvh, 320px);
   position: absolute; z-index: 5; left: 50%; top: auto;
-  bottom: max(24px, env(safe-area-inset-bottom));
+  bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px));
   display: block; width: 300px; max-width: calc(100% - 24px); min-height: 0;
   padding: 0; overflow: hidden; transform: translateX(-50%);
   color: #343128; background: #fffdf7f5; border: 1px solid #ded5c3;
@@ -24,7 +25,7 @@
 .is-expanded .island-expansion { grid-template-rows: 1fr; opacity: 1; filter: none; pointer-events: auto; }
 .race-action-island .action-moment,
 .immersive-race .race-action-island .action-moment {
-  position: static; inset: auto; transform: none; width: 100%; max-height: min(45dvh, 340px);
+  position: static; inset: auto; transform: none; width: 100%; max-height: var(--island-panel-height);
   overflow-y: auto; padding: 18px; border: 0; border-radius: 0; background: transparent;
   color: inherit; box-shadow: none; pointer-events: auto;
 }
@@ -44,10 +45,48 @@
 @keyframes island-roll { 0%, 100% { transform: rotate(-12deg) scale(.94); } 50% { transform: rotate(18deg) scale(1.08); } }
 @keyframes island-pulse { from { opacity: .3; } to { opacity: 1; } }
 @media (max-width: 700px), (max-height: 500px) and (max-width: 980px) {
-  .immersive-race .table-dice-hud.race-action-island { bottom: 12px; }
+  .immersive-race .table-dice-hud.race-action-island { bottom: 76px; --island-panel-height: min(40dvh, 240px); }
   .immersive-race .race-action-island .action-moment { padding: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .table-dice-hud.race-action-island, .island-controls, .island-expansion { transition: none; }
   .island-die.spinning, .island-pulse i { animation: none; }
+}
+
+/* Decisions expand the same shell sideways, with readable option cards. */
+.table-dice-hud.race-action-island.has-decision { width: 860px; }
+.race-action-island .decision-dialog,
+.immersive-race .race-action-island .decision-dialog {
+  width: 100%; max-height: var(--island-panel-height); padding: 20px; gap: 14px;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  color: #343128; overscroll-behavior: contain; scroll-padding: 16px;
+}
+.race-action-island .decision-dialog:focus { outline: none; }
+.race-action-island .decision-dialog h2 { font-family: inherit; font-size: 1.3rem; line-height: 1.3; }
+.race-action-island .decision-dialog header > strong { flex-shrink: 0; min-width: 48px; height: auto; min-height: 34px; padding: 6px 10px; border: 1px solid #e3cf99; border-radius: 18px; background: #f8ebc7; color: #765514; font-size: .8rem; }
+.race-action-island #decision-description { font-size: .9rem; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.race-action-island .decision-options { grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr)); align-items: stretch; gap: 10px; }
+.race-action-island .decision-options:has(.athlete-skill-details) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.race-action-island .decision-options .command { min-height: 48px; padding: 12px; border: 1px solid #ded5c3; border-radius: 16px; background: #f7f1e4; color: #343128; box-shadow: 0 2px 0 #47371b12; white-space: normal; font-size: .9rem; }
+.race-action-island .decision-options .command:not(:disabled):hover { background: #fff0ba; border-color: #b28a33; }
+.race-action-island .decision-options .command:focus-visible { outline: 3px solid #896313; outline-offset: 2px; }
+.race-action-island .decision-options .command:disabled { opacity: .6; }
+.race-action-island .decision-options .command.decision-chosen { opacity: 1; border-color: #a17b22; background: #ffe7a1; box-shadow: inset 0 0 0 1px #a17b22; }
+.race-action-island .decision-option-detail { display: block; margin-top: 6px; line-height: 1.5; }
+@media (max-width: 700px), (max-height: 500px) and (max-width: 980px) {
+  .immersive-race .race-action-island .decision-dialog { padding: 16px; }
+}
+
+/* Reserve a separate bottom row for tools. The island's fixed bottom edge
+   stays above it even while the spring overshoots upwards or sideways. */
+.immersive-race .race-stage .camera-controls,
+.immersive-race .race-stage .race-details-toggle {
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+}
+.immersive-race .race-stage .camera-controls { max-width: calc(100% - 24px); overflow-x: auto; }
+.immersive-race .race-stage .camera-controls button { flex-shrink: 0; }
+@media (max-width: 700px), (max-height: 500px) and (max-width: 980px) {
+  .immersive-race .race-stage .camera-controls { bottom: 12px; }
+  /* On phones the character button already has its own row below the board. */
+  .immersive-race .race-stage .race-details-toggle { bottom: auto; }
 }

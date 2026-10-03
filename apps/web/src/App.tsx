@@ -790,6 +790,23 @@ export default function App() {
   const decisionPlayerName = game?.players.find((player) => player.id === liveDecision?.playerId)?.name;
   const chosenOption = liveDecision?.options.find((option) => option.id === decisionOutcome?.optionId);
   const chosenLabel = chosenOption ? decisionOptionLabel(chosenOption.label, t) : t("common.automatic");
+  const decisionPanel = liveDecision ? (
+        <section className={`decision-dialog ${decisionOutcome ? "resolved" : ""}`} role="dialog" aria-modal={immersiveRace ? undefined : true} aria-labelledby="decision-title" aria-describedby="decision-description" tabIndex={-1}>
+          <header><div><small>{athleteName(liveDecision.athleteId, liveDecision.athleteName)}</small><h2 id="decision-title">{decisionTitle(liveDecision, t)}</h2></div><strong className={decisionOutcome ? "decision-result-badge" : decisionIsAutomated ? "decision-auto-badge" : undefined}>{decisionOutcome ? t("decision.replayBadge") : decisionIsAutomated ? t("decision.autoChoosing") : `${decisionSeconds}s`}</strong></header>
+          {autoPlay && <button className="command secondary decision-cancel-auto" disabled={status !== "connected"}
+            onClick={() => send({ type: "SET_AUTO_PLAY", enabled: false })}>{t("autoPlay.disable")}</button>}
+          {liveDecision.rollPreview && <p className="decision-roll">{t("decision.rollPreview")} <strong>{liveDecision.rollPreview.value}</strong>{liveDecision.rollPreview.finalValue !== liveDecision.rollPreview.value && <small>{t("decision.finalMove", { value: liveDecision.rollPreview.finalValue })}</small>}</p>}
+          <p id="decision-description">{decisionPrompt(liveDecision, t)}</p>
+          <div className="decision-options">{liveDecision.options.map((option) => <button className={`command secondary ${option.id === decisionOutcome?.optionId ? "decision-chosen" : ""}`} key={option.id}
+            ref={option.id === decisionOutcome?.optionId ? node => node?.scrollIntoView({block: "nearest"}) : undefined}
+            disabled={autoPlay || !!decisionOutcome || liveDecision.playerId !== playerId || status !== "connected" || playbackBusy || resolvingDecisionId === liveDecision.id || controlGame?.pendingDecision?.id !== liveDecision.id}
+            onClick={() => resolveDecision(liveDecision.id, option.id)}>{decisionOptionLabel(option.label, t)}
+            {option.athlete && <AthleteSkill athlete={option.athlete} />}
+            {option.ownerName != null && <small className="decision-option-detail">{t("race:decision.optionDetail", { owner: option.ownerName, position: option.position })}</small>}</button>)}</div>
+          {decisionOutcome ? <small aria-live="polite">{t(decisionOutcome.managed ? "decision.replayManaged" : decisionOutcome.automatic ? "decision.replayTimeout" : "decision.replayChosen", { name: decisionPlayerName, label: chosenLabel })}</small>
+            : liveDecision.playerId !== playerId && <small>{t("decision.waitingFor", { name: decisionPlayerName })}</small>}
+        </section>
+  ) : null;
 
   return (
     <main className={`table ${game?.phase === "CHARACTER_SELECTION" ? "selection-view" : ""} ${immersiveRace ? "immersive-race" : ""} ${raceDetailsOpen ? "race-details-open" : ""} ${immersiveRace && feedOpen ? "feed-sidebar-open" : ""}`}>
@@ -886,7 +903,7 @@ export default function App() {
           <div className="race-heading"><div><p className="kicker">RACE {game!.raceNumber} / 4</p><h2>{tracks[game!.raceNumber - 1]}</h2></div><div className="reward"><span>🏆 {game!.raceRewards[0]}</span><span>◉ {game!.raceRewards[1]}</span></div></div>
           {moment && !use3DRaceTable && <div className="race-moment-slot"><ActionMoment moment={moment} /></div>}
           {use3DRaceTable ? <Suspense fallback={<div className="race-table-loading" aria-label={t("race.loading")} />}>
-            <RaceTableScene taunts={taunts} onPropImpact={handlePropImpact} turnKey={rollAnimation?.autoThrow ? `playback-${rollAnimation.revision}-${rollAnimation.index}` : raceDiceTurnKey(game!, playbackBusy)} moment={moment} focus={cameraFocus ?? (game!.pendingDecision ? { athleteId: game!.pendingDecision.athleteId, playerId: game!.pendingDecision.playerId, close: true } : raceRollFocus(game!))} activePlayerId={game!.activePlayerId} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} dice={{
+            <RaceTableScene decision={decisionPanel} taunts={taunts} onPropImpact={handlePropImpact} turnKey={rollAnimation?.autoThrow ? `playback-${rollAnimation.revision}-${rollAnimation.index}` : raceDiceTurnKey(game!, playbackBusy)} moment={moment} focus={cameraFocus ?? (game!.pendingDecision ? { athleteId: game!.pendingDecision.athleteId, playerId: game!.pendingDecision.playerId, close: true } : raceRollFocus(game!))} activePlayerId={game!.activePlayerId} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} dice={{
               playbackBusy,
               enabled: !autoPlay && canRollRaceDice(
                 controlGame,
@@ -927,23 +944,7 @@ export default function App() {
       )}
 
       {moment && game!.phase !== "RACING" && <ActionMoment moment={moment} />}
-      {liveDecision && <div className={`decision-backdrop ${decisionOutcome ? "resolved" : ""}`}>
-        <section className="decision-dialog" role="dialog" aria-modal="true" aria-labelledby="decision-title">
-          <header><div><small>{athleteName(liveDecision.athleteId, liveDecision.athleteName)}</small><h2 id="decision-title">{decisionTitle(liveDecision, t)}</h2></div><strong className={decisionOutcome ? "decision-result-badge" : decisionIsAutomated ? "decision-auto-badge" : undefined}>{decisionOutcome ? t("decision.replayBadge") : decisionIsAutomated ? t("decision.autoChoosing") : `${decisionSeconds}s`}</strong></header>
-          {autoPlay && <button className="command secondary decision-cancel-auto" disabled={status !== "connected"}
-            onClick={() => send({ type: "SET_AUTO_PLAY", enabled: false })}>{t("autoPlay.disable")}</button>}
-          {liveDecision.rollPreview && <p className="decision-roll">{t("decision.rollPreview")} <strong>{liveDecision.rollPreview.value}</strong>{liveDecision.rollPreview.finalValue !== liveDecision.rollPreview.value && <small>{t("decision.finalMove", { value: liveDecision.rollPreview.finalValue })}</small>}</p>}
-          <p>{decisionPrompt(liveDecision, t)}</p>
-          <div className="decision-options">{liveDecision.options.map((option) => <button className={`command secondary ${option.id === decisionOutcome?.optionId ? "decision-chosen" : ""}`} key={option.id}
-            ref={option.id === decisionOutcome?.optionId ? node => node?.scrollIntoView({block: "nearest"}) : undefined}
-            disabled={autoPlay || !!decisionOutcome || liveDecision.playerId !== playerId || status !== "connected" || playbackBusy || resolvingDecisionId === liveDecision.id || controlGame?.pendingDecision?.id !== liveDecision.id}
-            onClick={() => resolveDecision(liveDecision.id, option.id)}>{decisionOptionLabel(option.label, t)}
-            {option.athlete && <AthleteSkill athlete={option.athlete} />}
-            {option.ownerName != null && <small className="decision-option-detail">{t("race:decision.optionDetail", { owner: option.ownerName, position: option.position })}</small>}</button>)}</div>
-          {decisionOutcome ? <small aria-live="polite">{t(decisionOutcome.managed ? "decision.replayManaged" : decisionOutcome.automatic ? "decision.replayTimeout" : "decision.replayChosen", { name: decisionPlayerName, label: chosenLabel })}</small>
-            : liveDecision.playerId !== playerId && <small>{t("decision.waitingFor", { name: decisionPlayerName })}</small>}
-        </section>
-      </div>}
+      {liveDecision && !immersiveRace && <div className={`decision-backdrop ${decisionOutcome ? "resolved" : ""}`}>{decisionPanel}</div>}
 
       {(game!.phase === "RACE_RESULTS" || game!.phase === "FINISHED") && (
         <section className="results-stage stage">

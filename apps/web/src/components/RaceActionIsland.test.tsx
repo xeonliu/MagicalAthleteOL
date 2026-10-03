@@ -23,3 +23,21 @@ it("keeps the shell and event content during collapse, then restores the roll co
   expect(view!.root.findAllByType(ActionMoment)).toHaveLength(0);
   act(() => view!.unmount());
 });
+
+it("prioritizes interactive decisions over playback and retains their descriptions", () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("window", { setTimeout, clearTimeout });
+  const choose = vi.fn();
+  const moment = { source: { name: "Dice", owner: "" }, target: { name: "Runner", owner: "" }, cause: "Roll", effect: "+3" };
+  const decision = <section role="dialog"><p>Choose how far to move.</p><button onClick={choose}>Move three spaces</button></section>;
+  let view: ReturnType<typeof create>;
+  act(() => { view = create(<RaceActionIsland moment={moment} busy status="Playing" decision={decision}><button>Roll</button></RaceActionIsland>); });
+  expect(view!.root.findAllByType(ActionMoment)).toHaveLength(0);
+  expect(view!.root.findByType("p").children).toEqual(["Choose how far to move."]);
+  act(() => view!.root.findByType("button").props.onClick());
+  expect(choose).toHaveBeenCalledOnce();
+  act(() => view!.update(<RaceActionIsland moment={moment} busy status="Playing"><button>Roll</button></RaceActionIsland>));
+  expect(view!.root.findAllByProps({ role: "dialog" })).toHaveLength(0);
+  expect(view!.root.findByType(ActionMoment).props.moment).toBe(moment);
+  act(() => view!.unmount());
+});
