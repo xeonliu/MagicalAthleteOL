@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { RaceRosterLayer } from "./components/RaceRosterLayer";
 import { SelectionCard } from "./components/SelectionCard";
 import { AthleteSkill } from "./components/AthleteSkill";
 import { RaceLeaderboard } from "./components/RaceLeaderboard";
@@ -59,29 +60,23 @@ const cardAccents: Record<string, string> = {
   stickler: "#68aeda", suckerfish: "#68aeda", third_wheel: "#319a55", twin: "#68aeda",
 };
 
-function RacerCard({ athlete, selected, disabled, used, compact, status, onClick }: {
-  athlete: AthleteCard; selected?: boolean; disabled?: boolean; used?: boolean; compact?: boolean;
-  status?: ReactNode; onClick?: () => void;
-}) {
+function RacerCard({ athlete, status }: { athlete: AthleteCard; status?: ReactNode }) {
   const { t } = useTranslation();
   const card = athleteText(t, athlete);
   const copiedCard = athlete.copiedAthlete ? athleteText(t, athlete.copiedAthlete) : null;
-  const className = `racer-card ${selected ? "selected" : ""} ${used ? "used" : ""} ${compact ? "compact" : ""}`;
-  const style = { "--card-accent": cardAccents[athlete.id] ?? "#f2bd27" } as CSSProperties;
-  const face = <>
-    <span className="racer-portrait">
-      <img src={assetUrl(`assets/racers/${athlete.id}.webp`)} alt="" onError={(event) => { event.currentTarget.hidden = true; }} />
-      <strong className="racer-name">{card.name}</strong>
-    </span>
-    <span className="ability-panel">{copiedCard ? <><strong className="copied-from">{t("racer.copiedFrom", { name: copiedCard.name })}</strong><span>{copiedCard.summary}</span></> : card.summary}</span>
-    <strong className="ability-title">{copiedCard?.abilityTitle ?? card.abilityTitle}</strong>
-    {used && <span className="used-stamp">{t("racer.retired")}</span>}
-    {status && <span className="racer-status">{status}</span>}
-  </>;
-  return <AthleteRules athlete={athlete}>{onClick
-    ? <button className={className} style={style} disabled={disabled || used} onClick={onClick}>{face}</button>
-    : <article className={className} style={style}>{face}</article>}
-  </AthleteRules>;
+  return <div className="selection-card-wrap race-roster-card" style={{ "--selection-accent": cardAccents[athlete.id] ?? "#f2bd27" } as CSSProperties}>
+    <AthleteRules athlete={athlete}>
+      <article className="selection-card">
+        <span className="selection-art"><img src={assetUrl(`assets/racer-tokens/${athlete.id}.webp`)} alt="" /></span>
+        <div className="selection-copy"><strong>{card.name}</strong>
+          <span className="selection-skill">{copiedCard?.abilityTitle ?? card.abilityTitle}</span>
+          {copiedCard && <strong className="copied-from">{t("racer.copiedFrom", { name: copiedCard.name })}</strong>}
+          <span className="selection-summary">{copiedCard?.summary ?? card.summary}</span>
+          {status && <span className="roster-racer-status">{status}</span>}
+        </div>
+      </article>
+    </AthleteRules>
+  </div>;
 }
 
 function racerStatus(racer: ActiveRacer, t: TFunction): string | null {
@@ -931,15 +926,17 @@ export default function App() {
           </div>
           {use3DRaceTable && <button className="race-details-toggle" aria-expanded={raceDetailsOpen} aria-controls="race-roster" onClick={() => setRaceDetailsOpen(!raceDetailsOpen)}>{raceDetailsOpen ? t("race.hideCards") : t("race.showCards")}</button>}
           <RaceLeaderboard players={game!.players} viewerId={playerId} activePlayerId={game!.activePlayerId} activeAthleteId={game!.activeAthleteId} />
+          <RaceRosterLayer open={raceDetailsOpen} inline={!use3DRaceTable} onClose={() => setRaceDetailsOpen(false)}>
           <section id="race-roster" className="race-roster" aria-label={t("race.cardsTitle")}>
             <div className="race-roster-heading"><p className="kicker">RACERS IN PLAY</p><h3>{t("race.cardsHeading")}</h3></div>
             <div className="race-roster-scroll">
               {game!.players.map((player, index) => <article className={`racer-owner ${game!.activePlayerId === player.id ? "active" : ""}`} key={player.id}>
                 <header><span className={`color-chip ${playerColors[index]}`} /><strong>{player.name}</strong>{player.id === playerId && <small>{t("common.you")}</small>}</header>
-                <div>{player.activeRacers.map((racer) => <RacerCard key={racer.id} athlete={racer} compact status={racerStatus(racer, t)} />)}</div>
+                <div>{player.activeRacers.map((racer) => <RacerCard key={racer.id} athlete={racer} status={racerStatus(racer, t)} />)}</div>
               </article>)}
             </div>
           </section>
+          </RaceRosterLayer>
         </section>
       )}
 
