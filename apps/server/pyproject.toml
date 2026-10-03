@@ -1,6 +1,6 @@
 [project]
 name = "magical-athlete-server"
-version = "0.1.0"
+version = "1.0.0"
 description = "Authoritative multiplayer server for Magical Athlete"
 requires-python = ">=3.12"
 dependencies = [
