@@ -23,7 +23,7 @@ vi.mock("./gameClient", () => ({
 vi.mock("./useBackgroundMusic", () => ({ useBackgroundMusic: () => null }));
 vi.mock("./gameAudio", () => ({
   playCharacterScoreSound: vi.fn(), playMoveSound: vi.fn(), playFireworkSound: vi.fn(), unlockGameAudio: vi.fn(),
-  playTripSound: vi.fn(),
+  playTripSound: vi.fn(), playPropImpactSound: vi.fn(),
 }));
 vi.mock("./components/race3d/RaceTableScene", () => ({ RaceTableScene: (_props: RaceTableSceneProps) => null }));
 
@@ -200,6 +200,27 @@ it("allows spectator props while retaining read-only gameplay", async () => {
   await act(async () => view.root.findByType(TauntPanel).props.onThrow("human", "tomato"));
   expect(connection.send).toHaveBeenCalledWith(expect.objectContaining({type:"THROW_PROP", targetPlayerId:"human", item:"tomato", actionId:"taunt-local-roll"}));
   expect(scene().dice.enabled).toBe(false);
+});
+
+it("plays each prop cue at the visual collision, once per throw", async () => {
+  const audio = await import("./gameAudio");
+  await join(game());
+  const event = {type: "PROP_THROWN" as const, id: "hit-1", actorId: "bot", actorName: "Bot", targetPlayerId: "human", targetName: "Human", item: "egg" as const, cooldownMs: 4000};
+  await receive(event);
+  await advance(700);
+  expect(audio.playPropImpactSound).not.toHaveBeenCalled();
+  act(() => scene().onPropImpact?.(event));
+  expect(audio.playPropImpactSound).toHaveBeenCalledTimes(1);
+  expect(audio.playPropImpactSound).toHaveBeenLastCalledWith("egg");
+  await receive(event);
+  act(() => scene().onPropImpact?.(event));
+  expect(audio.playPropImpactSound).toHaveBeenCalledTimes(1);
+  const tomato = {...event, id: "hit-2", item: "tomato" as const};
+  await receive(tomato);
+  act(() => scene().onPropImpact?.(tomato));
+  expect(audio.playPropImpactSound).toHaveBeenLastCalledWith("tomato");
+  expect(audio.playPropImpactSound).toHaveBeenCalledTimes(2);
+  expect(scene().dice.enabled).toBe(true);
 });
 
 it("plays a trip cue at the trip event and stays silent when reconnecting", async () => {

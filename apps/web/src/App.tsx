@@ -20,7 +20,7 @@ import { collectUnseenRollValues, latestAuthoritativeRollValue } from "./rollPre
 import { canRollRaceDice, raceDiceTurnKey, raceRollFocus } from "./raceControls";
 import { apiUrl, assetUrl } from "./runtimeConfig";
 import { scoreLabel } from "./scorePresentation";
-import { playCharacterScoreSound, playMoveSound, playFireworkSound, playTripSound, unlockGameAudio } from "./gameAudio";
+import { playCharacterScoreSound, playMoveSound, playFireworkSound, playTripSound, playPropImpactSound, unlockGameAudio } from "./gameAudio";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 type GameAction = Exclude<ClientIntent, { type: "JOIN_ROOM" }>;
@@ -123,6 +123,8 @@ export default function App() {
   const [taunts, setTaunts] = useState<PropThrow[]>([]);
   const [latestTaunt, setLatestTaunt] = useState<PropThrow | null>(null);
   const [tauntError, setTauntError] = useState("");
+  const soundedProps = useRef(new Set<string>());
+  const fallbackPropTimers = useRef(new Map<string, number>());
   const [rollOffResult, setRollOffResult] = useState<{ outcome: string; winnerId?: string } | null>(null);
   const [decisionSeconds, setDecisionSeconds] = useState(0);
   const [resolvingDecisionId, setResolvingDecisionId] = useState<string | null>(null);
@@ -150,6 +152,37 @@ export default function App() {
     const timer = window.setTimeout(() => setTaunts([]), 2200);
     return () => window.clearTimeout(timer);
   }, [taunts]);
+
+  function handlePropImpact(event: PropThrow) {
+    if (soundedProps.current.has(event.id)) return;
+    soundedProps.current.add(event.id);
+    if (soundedProps.current.size > 64) soundedProps.current.delete(soundedProps.current.values().next().value!);
+    playPropImpactSound(event.item);
+  }
+
+  function resetPropAudio() {
+    for (const timer of fallbackPropTimers.current.values()) window.clearTimeout(timer);
+    fallbackPropTimers.current.clear();
+    soundedProps.current.clear();
+    setTaunts([]);
+  }
+
+  useEffect(() => {
+    if (use3DRaceTable) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    for (const event of taunts) {
+      if (soundedProps.current.has(event.id) || fallbackPropTimers.current.has(event.id)) continue;
+      const timer = window.setTimeout(() => {
+        fallbackPropTimers.current.delete(event.id);
+        handlePropImpact(event);
+      }, reduced ? 0 : 850);
+      fallbackPropTimers.current.set(event.id, timer);
+    }
+  }, [taunts]);
+
+  useEffect(() => () => {
+    for (const timer of fallbackPropTimers.current.values()) window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     window.addEventListener("pointerdown", unlockGameAudio);
@@ -225,6 +258,7 @@ export default function App() {
   }
 
   function returnToEntry() {
+    resetPropAudio();
     setTaunts([]); setLatestTaunt(null); setTauntError("");
     resetPlayback();
     client.current.close();
@@ -379,6 +413,7 @@ export default function App() {
   }
 
   function resetPlaybackForWelcome(message: Extract<ServerMessage, { type: "WELCOME" }>) {
+    resetPropAudio();
     resetPlayback();
     const restoredRolls = new Set<string>();
     const raceKey = message.game.raceNumber - 1;
@@ -851,7 +886,7 @@ export default function App() {
           <div className="race-heading"><div><p className="kicker">RACE {game!.raceNumber} / 4</p><h2>{tracks[game!.raceNumber - 1]}</h2></div><div className="reward"><span>🏆 {game!.raceRewards[0]}</span><span>◉ {game!.raceRewards[1]}</span></div></div>
           {moment && <div className="race-moment-slot"><ActionMoment moment={moment} /></div>}
           {use3DRaceTable ? <Suspense fallback={<div className="race-table-loading" aria-label={t("race.loading")} />}>
-            <RaceTableScene taunts={taunts} turnKey={rollAnimation?.autoThrow ? `playback-${rollAnimation.revision}-${rollAnimation.index}` : raceDiceTurnKey(game!, playbackBusy)} moment={moment} focus={cameraFocus ?? (game!.pendingDecision ? { athleteId: game!.pendingDecision.athleteId, playerId: game!.pendingDecision.playerId, close: true } : raceRollFocus(game!))} activePlayerId={game!.activePlayerId} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} dice={{
+            <RaceTableScene taunts={taunts} onPropImpact={handlePropImpact} turnKey={rollAnimation?.autoThrow ? `playback-${rollAnimation.revision}-${rollAnimation.index}` : raceDiceTurnKey(game!, playbackBusy)} moment={moment} focus={cameraFocus ?? (game!.pendingDecision ? { athleteId: game!.pendingDecision.athleteId, playerId: game!.pendingDecision.playerId, close: true } : raceRollFocus(game!))} activePlayerId={game!.activePlayerId} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} dice={{
               playbackBusy,
               enabled: !autoPlay && canRollRaceDice(
                 controlGame,

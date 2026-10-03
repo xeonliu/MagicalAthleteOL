@@ -39,3 +39,36 @@ export function scheduleTripCue(audio: BaseAudioContext, output: AudioNode): voi
   voice(audio, output, 170, .3, .22, .047, "sine", 420);
   voice(audio, output, 210, .51, .18, .025, "sine", 300);
 }
+
+function wetNoise(audio: BaseAudioContext, output: AudioNode, when: number, duration: number, volume: number, cutoff: number) {
+  const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
+  const samples = buffer.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) samples[i] = (Math.random() * 2 - 1) * Math.exp(-i / audio.sampleRate * 15);
+  const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain();
+  const start = audio.currentTime + when;
+  source.buffer = buffer;
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(cutoff, start);
+  filter.frequency.exponentialRampToValueAtTime(160, start + duration);
+  gain.gain.setValueAtTime(volume, start);
+  gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+  source.connect(filter).connect(gain).connect(output);
+  source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+  source.start(start); source.stop(start + duration);
+}
+
+export function schedulePropImpactCue(audio: BaseAudioContext, output: AudioNode, item: "egg" | "tomato"): void {
+  if (item === "egg") {
+    // Thin shell crack followed by the wet yolk/white landing.
+    wetNoise(audio, output, 0, .055, .16, 6000);
+    wetNoise(audio, output, .025, .24, .2, 1100);
+    voice(audio, output, 155, .025, .13, .065, "sine", 55);
+    wetNoise(audio, output, .075, .035, .065, 4200);
+  } else {
+    // A softer, lower squash with two little drops of juice.
+    wetNoise(audio, output, 0, .32, .28, 900);
+    voice(audio, output, 110, 0, .17, .075, "sine", 42);
+    voice(audio, output, 310, .075, .09, .035, "sine", 105);
+    wetNoise(audio, output, .13, .14, .1, 1600);
+  }
+}

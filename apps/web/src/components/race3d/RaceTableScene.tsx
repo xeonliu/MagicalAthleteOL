@@ -24,6 +24,7 @@ import { festivalArtEnabled } from "../../artPack";
 
 export interface RaceTableSceneProps {
   taunts?: PropThrow[];
+  onPropImpact?: (event: PropThrow) => void;
   turnKey?: string;
   moment?: ActionMoment | null;
   players: PlayerState[];
@@ -273,7 +274,7 @@ function TableAndBounds() {
   </RigidBody>;
 }
 
-function Scene({ turnKey, moment, taunts = [], players, finishLine, trackName, dice, focus, activePlayerId, overview, reducedMotion, onDiceStateChange, registerDiceLauncher }: RaceTableSceneProps & {
+function Scene({ turnKey, moment, taunts = [], onPropImpact, players, finishLine, trackName, dice, focus, activePlayerId, overview, reducedMotion, onDiceStateChange, registerDiceLauncher }: RaceTableSceneProps & {
   overview: boolean; reducedMotion: boolean;
   onDiceStateChange: (state: DiceThrowState) => void;
   registerDiceLauncher: (launcher: DiceLauncher | null) => void;
@@ -287,7 +288,7 @@ function Scene({ turnKey, moment, taunts = [], players, finishLine, trackName, d
       shadow-camera-near={4} shadow-camera-far={32}
       shadow-camera-left={-13} shadow-camera-right={13} shadow-camera-top={6} shadow-camera-bottom={-6} />
     <directionalLight position={[9, 7, -7]} intensity={0.38} color="#dce8ff" />
-    <TauntEffects events={taunts} players={players} finishLine={finishLine} reducedMotion={reducedMotion} />
+    <TauntEffects events={taunts} players={players} finishLine={finishLine} reducedMotion={reducedMotion} onImpact={onPropImpact} />
     <Physics gravity={[0, -12, 0]}>
       <TableAndBounds />
       <TrackBoard trackName={trackName} />

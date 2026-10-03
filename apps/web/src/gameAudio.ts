@@ -1,4 +1,4 @@
-import { scheduleTripCue, scheduleVictoryCue } from "./audioEffects";
+import { schedulePropImpactCue, scheduleTripCue, scheduleVictoryCue } from "./audioEffects";
 
 let context: AudioContext | null = null;
 let sfxOutput: GainNode | null = null;
@@ -59,6 +59,11 @@ export function playPodiumSound(place: 1 | 2) {
 export function playTripSound() {
   const audio = getGameAudioContext();
   if (audio) scheduleTripCue(audio, getSfxOutput(audio));
+}
+
+export function playPropImpactSound(item: "egg" | "tomato") {
+  const audio = getGameAudioContext();
+  if (audio) schedulePropImpactCue(audio, getSfxOutput(audio), item);
 }
 
 export function unlockGameAudio() { getGameAudioContext(); }
