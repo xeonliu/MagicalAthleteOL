@@ -1,4 +1,9 @@
 {
+  "autoPlay": {
+    "enable": "Auto-play",
+    "disable": "Take control",
+    "hint": "Let a bot roll, draft, choose racers and use skills. Take control again at any time."
+  },
   "entry": {
     "kicker": "THE MAGICAL RACE IS ON",
     "joinLabel": "Join game",
@@ -10,6 +15,16 @@
     "cancelJoin": "Cancel join",
     "createRoom": "Create room"
   },
+  "spectator": {
+    "join": "Watch race",
+    "seats": "Spectator seats",
+    "count": "Spectators {{count}} / 20",
+    "watching": "Watching",
+    "leave": "Stop watching",
+    "reconnect": "Reconnect as spectator",
+    "selection": "Waiting for racer selection",
+    "selectionHint": "Racers are revealed when everyone is ready. You can watch the whole race."
+  },
   "status": {
     "connecting": "Connecting",
     "connected": "Online",
@@ -18,12 +33,16 @@
   "errors": {
     "createRoom": "Could not create a room",
     "network": "Cannot reach the server. Please try again.",
+    "connectionTimeout": "Joining timed out. Check your connection and try again.",
     "missingFields": "Enter a room code and a player name",
     "kicked": "The host removed you from the room",
     "send": "Could not send that action",
     "notConnected": "Not connected to a room yet"
   },
   "serverErrors": {
+    "TAUNT_COOLDOWN": "Props are cooling down. Try again in a moment.",
+    "TAUNT_NOT_RACING": "Props are available during a race.",
+    "INVALID_TAUNT_TARGET": "Choose another player in this room.",
     "ALREADY_JOINED": "You are already in a room",
     "ALREADY_ROLLED": "You already rolled for this round",
     "ATHLETE_ALREADY_LOCKED": "Your lineup for this race is already locked",
@@ -73,6 +92,7 @@
     "switchTo": "Switch to {{language}}"
   },
   "racer": {
+    "copiedFrom": "Copied: {{name}}",
     "retired": "Out of play",
     "eliminated": "Eliminated",
     "finished": "Finished",
@@ -149,6 +169,8 @@
     "ready": "{{ready}} / {{total}} players ready"
   },
   "race": {
+    "standingsTitle": "Live race standings",
+    "standingSpace": "Space {{position}}",
     "loading": "Loading the 3D race table",
     "otherPlayers": "Other players",
     "roll": "Roll",
@@ -163,7 +185,9 @@
     "waitingFor": "Waiting for {{name}} to choose",
     "replayBadge": "Chosen",
     "replayTimeout": "{{name}} timed out, so \"{{label}}\" was chosen automatically",
-    "replayChosen": "{{name}} picked \"{{label}}\""
+    "replayChosen": "{{name}} picked \"{{label}}\"",
+    "autoChoosing": "Choosing automatically",
+    "replayManaged": "{{name}} automatically picked \"{{label}}\""
   },
   "results": {
     "finalKicker": "FINAL SCORE",
@@ -182,6 +206,19 @@
     "source": "Triggered by",
     "target": "Affected",
     "space": "space"
+  },
+  "taunts": {
+    "open": "Interact",
+    "subtitle": "JUST FOR FUN · NO EFFECT ON THE RACE",
+    "title": "Throw a playful prop",
+    "pickTarget": "1. Choose a player",
+    "pickHint": "Choose a player, then a prop below",
+    "aiming": "Ready to throw at {{name}}",
+    "egg": "Egg",
+    "tomato": "Tomato",
+    "cooldown": "Ready again in {{seconds}}s",
+    "thrown": "{{actor}} threw a {{item}} at {{target}}",
+    "idle": "Open Interact to throw an egg or tomato"
   },
   "race3d": {
     "position": "Race position",
@@ -210,7 +247,10 @@
     "hidePieces": "Hide pieces",
     "showPieces": "Show pieces",
     "demoMove": "Demo move",
-    "abilityCloseUp": "Ability close-up"
+    "abilityCloseUp": "Ability close-up",
+    "rewards": "Race rewards",
+    "raceRewards": "Race {{race}}: trophy {{gold}} / rosette {{silver}}",
+    "demoScore": "Demo landing +1 point (with sound)"
   },
   "audio": {
     "label": "Background music",

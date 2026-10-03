@@ -4,28 +4,28 @@ import i18n from "./i18n";
 import { abilityOwner, abilityTitle, athleteText, racerLabel } from "./i18n/athletes";
 import type { GameEvent, PendingDecision } from "./protocol";
 
-/** Racer ids ride along on decisions, so the label never depends on server wording. */
 function athleteNameOf(t: TFunction, decision: PendingDecision): string {
   return athleteText(t, { id: decision.athleteId, name: decision.athleteName }).name;
 }
 
 export function decisionTitle(decision: PendingDecision, t: TFunction = i18n.t): string {
   if (abilityOwner(decision.abilityName)) return abilityTitle(t, decision.abilityName);
-  return t("race:decision.titleFallback", { athlete: decision.athleteName });
+  return t("race:decision.titleFallback", { athlete: athleteNameOf(t, decision) });
 }
 
-export type DecisionOutcome = { optionId: string | null; automatic: boolean; playerId: string };
+export type DecisionOutcome = { optionId: string | null; automatic: boolean; playerId: string; managed?: boolean };
 
 export type DecisionDialogState = { decision: PendingDecision; outcome: DecisionOutcome | null };
 
-// Only update an already visible choice. The submitting player has closed it.
+// Manual submissions close immediately; automated choices replay for their owner too.
 export function resolvedDecisionDialog(
   current: DecisionDialogState | null,
   events: GameEvent[],
   viewerId: string,
 ): DecisionDialogState | null {
-  if (!current || current.decision.playerId === viewerId) return null;
+  if (!current) return null;
   const outcome = decisionResolution(current.decision, events);
+  if (current.decision.playerId === viewerId && !outcome?.managed && !outcome?.automatic) return null;
   return outcome ? { decision: current.decision, outcome } : null;
 }
 
@@ -42,6 +42,7 @@ export function decisionResolution(
     optionId: resolved.optionId || null,
     automatic: Boolean(resolved.automatic) || resolved.type === "DECISION_TIMED_OUT",
     playerId: resolved.playerId ?? decision.playerId,
+    ...(resolved.bot ? { managed: true } : {}),
   };
 }
 
@@ -50,6 +51,8 @@ export function abilityTitleText(abilityName?: string, t: TFunction = i18n.t): s
 }
 
 export function decisionOptionLabel(label: string, t: TFunction = i18n.t): string {
+  if (label === "skip") return t("race:decision.skip");
+  if (label === "use") return t("race:decision.use");
   return racerLabel(t, label);
 }
 
@@ -73,6 +76,5 @@ export function decisionPrompt(decision: PendingDecision, t: TFunction = i18n.t)
   if (decision.choiceType === "BOOLEAN") {
     return t("race:decision.useAbility", { ability: decisionTitle(decision, t) });
   }
-  // Last resort: the server only sends a prompt string here, so reuse it verbatim.
-  return decision.prompt.split(decision.abilityName).join(athleteNameOf(t, decision));
+  return t("race:decision.chooseAction");
 }

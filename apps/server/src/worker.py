@@ -128,8 +128,14 @@ class RoomDurableObject(DurableObject):
                     connected=False,
                     seen_action_ids=set(item.seen_action_ids),
                     is_bot=item.is_bot,
+                    auto_play=item.auto_play,
                 )
                 for player_id, item in snapshot.players.items()
+            },
+            spectators={
+                member_id: RoomPlayer(player=item.player, reconnect_token=item.reconnect_token,
+                                      connected=False, seen_action_ids=set(item.seen_action_ids))
+                for member_id, item in snapshot.spectators.items()
             },
         )
         self.room = room
@@ -145,7 +151,7 @@ class RoomDurableObject(DurableObject):
             player_id = websocket.deserializeAttachment()
             if not player_id:
                 continue
-            member = self.room.players.get(player_id)
+            member = self.room.member(player_id)
             if member is not None:
                 member.connected = True
                 member.socket = WorkerSocket(websocket)
@@ -161,6 +167,7 @@ class RoomDurableObject(DurableObject):
                     reconnect_token=member.reconnect_token,
                     seen_action_ids=set(member.seen_action_ids),
                     is_bot=member.is_bot,
+                    auto_play=member.auto_play,
                 )
                 for player_id, member in self.room.players.items()
             },
@@ -170,6 +177,8 @@ class RoomDurableObject(DurableObject):
             roll_deadline=self.room.roll_deadline,
             last_active_at=self.last_active_at,
             bot_deadline=self.room.bot_deadline,
+            spectators={member_id: SnapshotPlayer(member.player, member.reconnect_token, set(member.seen_action_ids))
+                        for member_id, member in self.room.spectators.items()},
         )
         await self.ctx.storage.put("snapshot", encode_snapshot(snapshot))
         expiry = self.last_active_at + ROOM_TTL
@@ -225,7 +234,7 @@ class RoomDurableObject(DurableObject):
             elif isinstance(intent, JoinRoomIntent):
                 await socket.send_json(ErrorMessage(code="ALREADY_JOINED", message="已经加入房间").model_dump(by_alias=True))
             else:
-                member = room.players.get(player_id)
+                member = room.member(player_id)
                 if member is None:
                     raise RoomError("INVALID_RECONNECT_TOKEN", "重连凭证无效")
                 member.connected = True
@@ -254,7 +263,7 @@ class RoomDurableObject(DurableObject):
             return
         player_id = websocket.deserializeAttachment()
         if player_id:
-            member = self.room.players.get(player_id)
+            member = self.room.member(player_id)
             if (
                 member is not None
                 and isinstance(member.socket, WorkerSocket)

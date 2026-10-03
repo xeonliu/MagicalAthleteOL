@@ -60,3 +60,12 @@ it("ignores resolutions of another decision or an unrelated event", () => {
   expect(decisionResolution(decision, [{ type: "DIE_ROLLED", value: 3 }])).toBeNull();
   expect(decisionResolution(null, [{ type: "DECISION_RESOLVED", decisionId: "d1", optionId: "1" }])).toBeNull();
 });
+
+it("replays managed choices and timeouts for the deciding player", () => {
+  const decision = {id: "d1", playerId: "p1"} as PendingDecision;
+  const current = {decision, outcome: null};
+  expect(resolvedDecisionDialog(current, [{type: "DECISION_RESOLVED", decisionId: "d1", optionId: "2", bot: true}], "p1"))
+    .toEqual({decision, outcome: {optionId: "2", playerId: "p1", automatic: false, managed: true}});
+  expect(resolvedDecisionDialog(current, [{type: "DECISION_TIMED_OUT", decisionId: "d1", optionId: "1"}], "p1"))
+    .toEqual({decision, outcome: {optionId: "1", playerId: "p1", automatic: true}});
+});

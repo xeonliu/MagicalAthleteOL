@@ -9,6 +9,7 @@ class JoinRoomIntent(BaseModel):
     player_name: str = Field(alias="playerName", min_length=1, max_length=24)
     player_id: str | None = Field(default=None, alias="playerId")
     reconnect_token: str | None = Field(default=None, alias="reconnectToken")
+    role: Literal["player", "spectator"] = "player"
 
 
 class LeaveRoomIntent(BaseModel):
@@ -42,6 +43,19 @@ class SetAutoDealIntent(BaseModel):
     type: Literal["SET_AUTO_DEAL"]
     action_id: str = Field(alias="actionId", min_length=1, max_length=64)
     auto_deal: bool = Field(alias="autoDeal")
+
+
+class SetAutoPlayIntent(BaseModel):
+    type: Literal["SET_AUTO_PLAY"]
+    action_id: str = Field(alias="actionId", min_length=1, max_length=64)
+    enabled: bool
+
+
+class ThrowPropIntent(BaseModel):
+    type: Literal["THROW_PROP"]
+    action_id: str = Field(alias="actionId", min_length=1, max_length=64)
+    target_player_id: str = Field(alias="targetPlayerId", min_length=1, max_length=64)
+    item: Literal["egg", "tomato"]
 
 
 class RollDiceIntent(BaseModel):
@@ -86,6 +100,8 @@ ClientIntent = Annotated[
     | StartGameIntent
     | SetVariantIntent
     | SetAutoDealIntent
+    | SetAutoPlayIntent
+    | ThrowPropIntent
     | RollStartIntent
     | DraftAthleteIntent
     | SelectRacersIntent

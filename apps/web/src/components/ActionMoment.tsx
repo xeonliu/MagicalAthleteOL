@@ -18,7 +18,7 @@ export function ActionMoment({ moment }: { moment: Moment }) {
     <p>{moment.cause}</p>
     <div className="moment-flow">
       <Actor actor={moment.source} label={t("momentFlow.source")} diceText={diceText} />
-      <div className="moment-effect"><span aria-hidden="true">⟶</span><strong>{moment.effect}</strong>
+      <div className="moment-effect">{moment.scoreAmount !== undefined ? <img key={`${moment.target.playerId}-${moment.target.athleteId}`} className="score-star-award" src={assetUrl("assets/score-chips/star-1.webp")} alt="" /> : <span aria-hidden="true">⟶</span>}<strong>{moment.effect}</strong>
         {moment.from !== undefined && moment.to !== undefined && <div className="moment-positions"><b>{moment.from}</b><span>→</span><b>{moment.to}</b><small>{t("momentFlow.space")}</small></div>}
       </div>
       <Actor actor={moment.target} label={t("momentFlow.target")} diceText={diceText} />

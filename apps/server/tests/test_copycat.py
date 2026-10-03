@@ -41,3 +41,32 @@ def test_copycat_still_prompts_for_tied_leaders() -> None:
     assert broker.pending is not None
     assert broker.pending.ability_name == "CopyLead"
     assert scenario.engine.state.roll_state.serial_id == 0
+
+
+def test_copycat_exposes_its_current_target_through_the_copy_contract() -> None:
+    import random
+    from dataclasses import replace
+
+    from magical_athlete.athletes import ATHLETE_BY_ID
+    from magical_athlete.game import GamePhase, MagsimGameEngine, Player
+
+    engine = MagsimGameEngine(random.Random(3))
+    state = replace(
+        engine.create_game((Player("a", "A"), Player("b", "B"))),
+        phase=GamePhase.CHARACTER_SELECTION,
+        first_turn_player_id="a",
+        teams={
+            "a": (ATHLETE_BY_ID["copycat"], ATHLETE_BY_ID["blimp"]),
+            "b": (ATHLETE_BY_ID["coach"], ATHLETE_BY_ID["banana"]),
+        },
+    )
+    state = engine.select_racers(state, "a", ("copycat", "blimp")).state
+    state = engine.select_racers(state, "b", ("coach", "banana")).state
+    state.magsim_engine.get_racer(1).position = 5
+
+    state.magsim_engine.start_turn()
+    assert state.magsim_engine.continue_turn() is TurnProgress.WAITING_FOR_ROLL
+
+    public = engine.public_state(state, "a")["players"][0]["activeRacers"][0]
+    assert public["id"] == "copycat"
+    assert public["copiedAthlete"] == {"id": "blimp", "name": "Blimp"}

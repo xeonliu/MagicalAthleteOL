@@ -31,12 +31,21 @@ class AbilityScoochStep(Ability):
         engine: GameEngine,
         agent: Agent,
     ) -> AbilityTriggeredEventOrSkipped:
-        # trigger on everyone's abilities but not on Scoocher's
+        # React to other racers, once each within the same ScoochStep chain.
         if (
             not isinstance(event, AbilityTriggeredEvent)
             or event.responsible_racer_idx == owner.idx
         ):
             return "skip_trigger"
+
+        reactors = getattr(event, "scooch_reactors", None)
+        if reactors is None:
+            # Queued events saved before this field was added can still resume.
+            reactors = set()
+            object.__setattr__(event, "scooch_reactors", reactors)
+        if owner.idx in reactors:
+            return "skip_trigger"
+        reactors.add(owner.idx)
 
         source_racer: RacerState = engine.get_racer(event.responsible_racer_idx)
 
@@ -58,5 +67,6 @@ class AbilityScoochStep(Ability):
             source=self.name,
             responsible_racer_idx=owner.idx,
             emit_ability_triggered="after_resolution",
+            scooch_reactors=reactors,
         )
         return "skip_trigger"

@@ -60,7 +60,7 @@ def test_two_players_complete_four_races(monkeypatch):
                     choices[choice["abilityName"]] += 1
                     actor = choice["playerId"]
                     options = choice["options"]
-                    selected = next((o for o in options if o["label"] == "不使用"), options[-1])
+                    selected = next((o for o in options if o["id"] == "skip"), options[-1])
                     intent = {"type": "RESOLVE_DECISION", "decisionId": choice["id"], "optionId": selected["id"]}
                 else:
                     actor = game["pendingRoll"]["nextPlayerId"] if game["pendingRoll"] else game["activePlayerId"]

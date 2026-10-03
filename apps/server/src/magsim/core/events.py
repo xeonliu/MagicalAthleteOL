@@ -230,6 +230,7 @@ class MoveCmdEvent(GameEvent, EmitsAbilityTriggeredEvent, HasTargetRacer):
     distance: int
     emit_ability_triggered: EventTriggerMode = "never"
     is_main: bool = False
+    scooch_reactors: set[int] = field(default_factory=set, kw_only=True, compare=False, repr=False)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -320,6 +321,7 @@ class AbilityTriggeredEvent(GameEvent):
     source: AbilityName | ModifierName
     target_racer_idx: int | None
     movement_distance: int = 0
+    scooch_reactors: set[int] = field(default_factory=set, kw_only=True, compare=False, repr=False)
 
     @classmethod
     def from_event(cls, event: GameEvent) -> Self:
@@ -339,6 +341,7 @@ class AbilityTriggeredEvent(GameEvent):
             target_racer_idx=event.target_racer_idx
             if isinstance(event, HasTargetRacer)
             else None,
+            scooch_reactors=getattr(event, "scooch_reactors", set()),
         )
 
 

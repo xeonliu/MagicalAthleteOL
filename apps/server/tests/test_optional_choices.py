@@ -12,7 +12,7 @@ def pending(ability):
 @pytest.mark.parametrize("ability", ["DuelistDuel", "FlipFlopSwap", "HypnotistWarp", "ThirdWheelJoin"])
 def test_optional_target_can_be_declined_and_replayed(ability):
     broker = DecisionBroker(pending=pending(ability))
-    assert {"id": "skip", "label": "不使用"} in broker.pending.public_options()
+    assert {"id": "skip", "label": "skip"} in broker.pending.public_options()
     broker.choose("choice", "skip")
     ctx = SimpleNamespace(source_racer_idx=0, source=SimpleNamespace(name=ability))
     assert broker.request(ctx, ("target",), ("目标",), "RACER") is None

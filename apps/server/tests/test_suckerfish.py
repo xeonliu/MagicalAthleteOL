@@ -24,7 +24,7 @@ def test_follow_move_preserves_the_actual_leading_racer():
     assert (movement.start_tile, movement.end_tile) == (0, 3)
 
 
-def test_paused_follow_choice_does_not_publish_rolled_back_movement():
+def test_leader_lands_before_follow_choice_without_replaying_its_move():
     import random
     from dataclasses import replace
     from magical_athlete.athletes import ATHLETE_BY_ID
@@ -43,10 +43,13 @@ def test_paused_follow_choice_does_not_publish_rolled_back_movement():
     assert roll.state.pending_decision["effectPreview"]["athleteName"] == "Coach"
     assert roll.state.pending_decision["effectPreview"]["from"] == 0
     assert roll.state.pending_decision["effectPreview"]["to"] == 6
-    assert not any(e["type"] == "RACER_MOVED" for e in roll.events)
+    leader_moves = [e for e in roll.events if e["type"] == "RACER_MOVED"]
+    assert [(e['athleteId'], e['to']) for e in leader_moves] == [('coach', 6)]
+    public = engine.public_state(roll.state)
+    assert public['players'][1]['activeRacers'][0]['position'] == 6
     resumed = engine.resolve_decision(roll.state, "a", roll.state.pending_decision["id"], "1")
     moves = [e for e in resumed.events if e["type"] == "RACER_MOVED"]
-    assert len([e for e in moves if e["athleteId"] == "coach"]) == 1
+    assert not any(e["athleteId"] == "coach" for e in moves)
     follow = next(e for e in moves if e["athleteId"] == "suckerfish")
     assert follow["triggerAthleteId"] == "coach"
     assert follow["triggerPlayerId"] == "b"

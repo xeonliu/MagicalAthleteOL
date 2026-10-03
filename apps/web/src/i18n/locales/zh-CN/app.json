@@ -1,4 +1,9 @@
 {
+  "autoPlay": {
+    "enable": "开启托管",
+    "disable": "取消托管",
+    "hint": "机器人代为投骰、招募角色、选择阵容和技能；可随时取消。"
+  },
   "entry": {
     "kicker": "THE MAGICAL RACE IS ON",
     "joinLabel": "加入游戏",
@@ -10,6 +15,16 @@
     "cancelJoin": "取消加入",
     "createRoom": "创建房间"
   },
+  "spectator": {
+    "join": "旁观比赛",
+    "seats": "旁观席",
+    "count": "旁观者 {{count}} / 20",
+    "watching": "正在旁观",
+    "leave": "退出旁观",
+    "reconnect": "重新连接旁观",
+    "selection": "等待玩家选择角色",
+    "selectionHint": "选人结束后会公开本场角色，你可以观看完整比赛。"
+  },
   "status": {
     "connecting": "连接中",
     "connected": "在线",
@@ -18,12 +33,16 @@
   "errors": {
     "createRoom": "创建房间失败",
     "network": "无法连接服务器，请稍后重试",
+    "connectionTimeout": "加入房间超时，请检查网络后重试",
     "missingFields": "请输入房间号和玩家名称",
     "kicked": "你已被房主移出房间",
     "send": "发送行动失败",
     "notConnected": "尚未连接到房间"
   },
   "serverErrors": {
+    "TAUNT_COOLDOWN": "道具正在冷却，请稍等片刻",
+    "TAUNT_NOT_RACING": "比赛开始后才能使用互动道具",
+    "INVALID_TAUNT_TARGET": "请选择房间里的其他玩家",
     "ALREADY_JOINED": "已经加入房间",
     "ALREADY_ROLLED": "你已经掷过本轮起始骰",
     "ATHLETE_ALREADY_LOCKED": "本场阵容已经锁定",
@@ -73,6 +92,7 @@
     "switchTo": "切换到{{language}}"
   },
   "racer": {
+    "copiedFrom": "已复制：{{name}}",
     "retired": "已退场",
     "eliminated": "已淘汰",
     "finished": "已完赛",
@@ -149,6 +169,8 @@
     "ready": "{{ready}} / {{total}} 位玩家已准备"
   },
   "race": {
+    "standingsTitle": "实时位置排名",
+    "standingSpace": "第 {{position}} 格",
     "loading": "正在加载 3D 比赛桌",
     "otherPlayers": "其他玩家",
     "roll": "掷骰",
@@ -163,7 +185,9 @@
     "waitingFor": "等待 {{name}} 选择",
     "replayBadge": "已选择",
     "replayTimeout": "{{name}} 超时未选，系统自动选择「{{label}}」",
-    "replayChosen": "{{name}} 选择了「{{label}}」"
+    "replayChosen": "{{name}} 选择了「{{label}}」",
+    "autoChoosing": "自动选择中",
+    "replayManaged": "{{name}} 自动选择了「{{label}}」"
   },
   "results": {
     "finalKicker": "FINAL SCORE",
@@ -182,6 +206,19 @@
     "source": "触发来源",
     "target": "受影响",
     "space": "格"
+  },
+  "taunts": {
+    "open": "互动",
+    "subtitle": "趣味互动 · 不影响比赛结果",
+    "title": "来点赛场互动",
+    "pickTarget": "1. 选择一位玩家",
+    "pickHint": "先选玩家，再点击下面的道具投掷",
+    "aiming": "准备向 {{name}} 投掷",
+    "egg": "鸡蛋",
+    "tomato": "番茄",
+    "cooldown": "{{seconds}} 秒后可以再次投掷",
+    "thrown": "{{actor}} 向 {{target}} 丢了{{item}}",
+    "idle": "点「互动」，向朋友丢个鸡蛋或番茄"
   },
   "race3d": {
     "position": "比赛位置",
@@ -210,7 +247,10 @@
     "hidePieces": "隐藏棋子",
     "showPieces": "显示棋子",
     "demoMove": "演示移动",
-    "abilityCloseUp": "技能特写"
+    "abilityCloseUp": "技能特写",
+    "rewards": "比赛奖励",
+    "raceRewards": "第 {{race}} 场：奖杯 {{gold}} / 银花 {{silver}}",
+    "demoScore": "演示落格 +1 分（含音效）"
   },
   "audio": {
     "label": "背景音乐",

@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { useTranslation } from "react-i18next";
 
 import { athleteText } from "../i18n/athletes";
+import { AthleteSkill } from "./AthleteSkill";
 import { createPortal } from "react-dom";
 import type { AthleteCard } from "../protocol";
 
@@ -75,6 +76,7 @@ export function AthleteRules({ athlete, children }: { athlete: AthleteCard; chil
       <strong>{card.name} · {card.abilityTitle}</strong>
       <p className="racer-rules-summary">{card.summary}</p>
       {card.details && <p>{card.details}</p>}
+      {athlete.copiedAthlete && <AthleteSkill athlete={athlete.copiedAthlete} copied />}
     </div>, document.body)}
   </div>;
 }

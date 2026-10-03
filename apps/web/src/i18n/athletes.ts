@@ -100,6 +100,6 @@ export function abilityTitle(t: TFunction, abilityName?: string): string {
 export function racerLabel(t: TFunction, wireLabel: string): string {
   const id = athleteIdFromWireName(wireLabel);
   if (id) return t(`athletes:${id}.name`);
-  if (wireLabel === "不使用") return t("race:decision.skip");
+  if (wireLabel === "skip") return t("race:decision.skip");
   return wireLabel;
 }

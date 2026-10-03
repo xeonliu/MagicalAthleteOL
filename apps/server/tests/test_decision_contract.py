@@ -52,7 +52,7 @@ def test_boolean_timeout_is_not_evaluated_against_an_earlier_replayed_choice():
     assert agent.make_boolean_decision(None, second) is True
 
 
-def selection_game(first='hypnotist', second='coach', seed=3):
+def selection_game(first='hypnotist', second='coach', seed=3, winners=()):
     import random
     from dataclasses import replace
     from magical_athlete.athletes import ATHLETE_BY_ID
@@ -60,6 +60,7 @@ def selection_game(first='hypnotist', second='coach', seed=3):
     engine = MagsimGameEngine(random.Random(seed))
     state = replace(engine.create_game((Player('a', 'A'), Player('b', 'B'))),
         phase=GamePhase.CHARACTER_SELECTION, first_turn_player_id='a',
+        race_winner_ids=tuple(winners),
         teams={'a': (ATHLETE_BY_ID[first], ATHLETE_BY_ID['blimp']),
                'b': (ATHLETE_BY_ID[second], ATHLETE_BY_ID['banana'])})
     state = engine.select_racers(state, 'a', (first, 'blimp')).state
@@ -84,13 +85,55 @@ def test_required_prediction_rejects_invalid_options_without_consuming_choice(op
 @pytest.mark.parametrize('athlete', ['egg', 'twin'])
 @pytest.mark.parametrize('option', [0, 1, 2])
 def test_each_setup_candidate_copies_the_displayed_racer(athlete, option):
-    engine, state = selection_game(athlete)
+    engine, state = selection_game(athlete, winners=('coach', 'legs', 'genius'))
     choice = state.pending_decision
     expected = choice['options'][option]['label']
+    expected_card = choice['options'][option]['athlete']
     state = engine.resolve_decision(state, 'a', choice['id'], str(option)).state
     ability = next(a for a in state.magsim_engine.get_racer(0).active_abilities
                    if a.name == ('EggCopy' if athlete == 'egg' else 'TwinCopy'))
     assert ability.copied_racer == expected
+    if athlete == 'twin':
+        public = engine.public_state(state, 'a')['players'][0]['activeRacers'][0]
+        assert public['id'] == 'twin'
+        assert public['copiedAthlete'] == expected_card
+    else:
+        public = engine.public_state(state, 'a')['players'][0]['activeRacers'][0]
+        assert public['id'] == 'egg'
+        assert public['copiedAthlete'] == expected_card
+
+
+def test_twin_has_no_invented_champions_in_the_first_race():
+    engine, state = selection_game('twin')
+    assert not state.pending_decision or state.pending_decision['abilityName'] != 'TwinCopy'
+    twin = state.magsim_engine.get_racer(0)
+    assert next(a for a in twin.active_abilities if a.name == 'TwinCopy').copied_racer is None
+    assert 'copiedAthlete' not in engine.public_state(state)['players'][0]['activeRacers'][0]
+
+
+def test_twin_candidates_are_exactly_the_unique_actual_previous_winners():
+    engine, state = selection_game('twin', winners=('legs', 'genius', 'legs'))
+    assert [option['athlete']['id'] for option in state.pending_decision['options']] == ['legs', 'genius']
+    state = engine.resolve_decision(state, 'a', state.pending_decision['id'], '1').state
+    assert any(a.name == 'GeniusPrediction' for a in state.magsim_engine.get_racer(0).active_abilities)
+
+
+def test_champions_survive_advancing_to_the_next_race():
+    from dataclasses import replace
+    engine, state = selection_game('coach', 'skipper')
+    racer = state.magsim_engine.get_racer(0)
+    racer.finish_position = 1
+    racer.victory_points = 3
+    finished = engine._finish_race(state, []).state
+    assert finished.race_winner_ids == ('coach',)
+    next_race = engine.advance_race(finished, 'a').state
+    assert not next_race.race_results
+    assert next_race.race_winner_ids == ('coach',)
+    from magical_athlete.athletes import ATHLETE_BY_ID
+    next_race = replace(next_race, first_turn_player_id='a', selections={'a': (ATHLETE_BY_ID['twin'], ATHLETE_BY_ID['legs']),
+                                             'b': (ATHLETE_BY_ID['egg'], ATHLETE_BY_ID['genius'])})
+    next_race = engine._create_race(next_race)
+    assert [o['athlete']['id'] for o in next_race.pending_decision['options']] == ['coach']
 
 
 @pytest.mark.parametrize('option', ['0', '1', '2', 'skip'])
@@ -250,7 +293,7 @@ def test_third_wheel_picks_one_of_multiple_pairs(option, destination):
         ['ThirdWheel', 'Coach', 'Blimp', 'Legs', 'Inchworm'], [0, 4, 4, 8, 8])
     assert broker.pending.ability_name == 'ThirdWheelJoin'
     assert broker.pending.public_options() == [
-        {'id': '0', 'label': '4'}, {'id': '1', 'label': '8'}, {'id': 'skip', 'label': '不使用'}]
+        {'id': '0', 'label': '4'}, {'id': '1', 'label': '8'}, {'id': 'skip', 'label': 'skip'}]
     broker.choose(broker.pending.id, option)
     engine.continue_turn()
     assert engine.get_racer(0).position == destination

@@ -1,23 +1,28 @@
+import { RaceRewards } from "./components/RaceRewards";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { RaceRosterLayer } from "./components/RaceRosterLayer";
 import { SelectionCard } from "./components/SelectionCard";
+import { AthleteSkill } from "./components/AthleteSkill";
+import { RaceLeaderboard } from "./components/RaceLeaderboard";
 import { athleteText } from "./i18n/athletes";
 import { useBackgroundMusic } from "./useBackgroundMusic";
 import { AthleteRules } from "./components/AthleteRules";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { decisionResolution, decisionTitle, decisionPrompt, decisionOptionLabel, resolvedDecisionDialog, type DecisionDialogState } from "./decisionPresentation";
 import { ActionMoment } from "./components/ActionMoment";
-import { actionMoment, eventText, isRedundantAbilityEvent, rollOffPresentation, type ActionMoment as Moment } from "./eventPresentation";
+import { TauntPanel, propEmoji } from "./components/TauntPanel";
+import { actionMoment, landingScoreMoment, eventText, isRedundantAbilityEvent, rollOffPresentation, type ActionMoment as Moment } from "./eventPresentation";
 import { RaceTrack } from "./components/RaceTrack";
 import { actionId, clearSession, GameClient, loadSession, roomFromPath, saveSession } from "./gameClient";
-import type { ActiveRacer, AthleteCard, ClientIntent, GameEvent, RoomSnapshot, ServerMessage } from "./protocol";
+import type { ActiveRacer, AthleteCard, ClientIntent, GameEvent, PropThrow, RoomSnapshot, ServerMessage } from "./protocol";
 import { collectUnseenRollValues, latestAuthoritativeRollValue } from "./rollPresentation";
 import { canRollRaceDice, raceDiceTurnKey, raceRollFocus } from "./raceControls";
 import { apiUrl, assetUrl } from "./runtimeConfig";
 import { scoreLabel } from "./scorePresentation";
-import { playCharacterScoreSound, playMoveSound, playFireworkSound, unlockGameAudio } from "./gameAudio";
+import { playCharacterScoreSound, playMoveSound, playFireworkSound, playTripSound, playPropImpactSound, unlockGameAudio } from "./gameAudio";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 type GameAction = Exclude<ClientIntent, { type: "JOIN_ROOM" }>;
@@ -56,28 +61,23 @@ const cardAccents: Record<string, string> = {
   stickler: "#68aeda", suckerfish: "#68aeda", third_wheel: "#319a55", twin: "#68aeda",
 };
 
-function RacerCard({ athlete, selected, disabled, used, compact, status, onClick }: {
-  athlete: AthleteCard; selected?: boolean; disabled?: boolean; used?: boolean; compact?: boolean;
-  status?: ReactNode; onClick?: () => void;
-}) {
+function RacerCard({ athlete, status }: { athlete: AthleteCard; status?: ReactNode }) {
   const { t } = useTranslation();
   const card = athleteText(t, athlete);
-  const className = `racer-card ${selected ? "selected" : ""} ${used ? "used" : ""} ${compact ? "compact" : ""}`;
-  const style = { "--card-accent": cardAccents[athlete.id] ?? "#f2bd27" } as CSSProperties;
-  const face = <>
-    <span className="racer-portrait">
-      <img src={assetUrl(`assets/racers/${athlete.id}.webp`)} alt="" onError={(event) => { event.currentTarget.hidden = true; }} />
-      <strong className="racer-name">{card.name}</strong>
-    </span>
-    <span className="ability-panel">{card.summary}</span>
-    <strong className="ability-title">{card.abilityTitle}</strong>
-    {used && <span className="used-stamp">{t("racer.retired")}</span>}
-    {status && <span className="racer-status">{status}</span>}
-  </>;
-  return <AthleteRules athlete={athlete}>{onClick
-    ? <button className={className} style={style} disabled={disabled || used} onClick={onClick}>{face}</button>
-    : <article className={className} style={style}>{face}</article>}
-  </AthleteRules>;
+  const copiedCard = athlete.copiedAthlete ? athleteText(t, athlete.copiedAthlete) : null;
+  return <div className="selection-card-wrap race-roster-card" style={{ "--selection-accent": cardAccents[athlete.id] ?? "#f2bd27" } as CSSProperties}>
+    <AthleteRules athlete={athlete}>
+      <article className="selection-card">
+        <span className="selection-art"><img src={assetUrl(`assets/racer-tokens/${athlete.id}.webp`)} alt="" /></span>
+        <div className="selection-copy"><strong>{card.name}</strong>
+          <span className="selection-skill">{copiedCard?.abilityTitle ?? card.abilityTitle}</span>
+          {copiedCard && <strong className="copied-from">{t("racer.copiedFrom", { name: copiedCard.name })}</strong>}
+          <span className="selection-summary">{copiedCard?.summary ?? card.summary}</span>
+          {status && <span className="roster-racer-status">{status}</span>}
+        </div>
+      </article>
+    </AthleteRules>
+  </div>;
 }
 
 function racerStatus(racer: ActiveRacer, t: TFunction): string | null {
@@ -100,7 +100,7 @@ export default function App() {
   const athleteName = (id: string, fallback: string) => athleteText(t, { id, name: fallback }).name;
   const initialRoomId = roomFromPath();
   const [roomId, setRoomId] = useState(initialRoomId);
-  const [playerName, setPlayerName] = useState(loadSession(initialRoomId)?.playerName ?? "");
+  const [playerName, setPlayerName] = useState((loadSession(initialRoomId) ?? loadSession(initialRoomId, "spectator"))?.playerName ?? "");
   const [playerId, setPlayerId] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ authoritative: null, display: null, playbackBusy: false });
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
@@ -116,6 +116,11 @@ export default function App() {
   const [raceDetailsOpen, setRaceDetailsOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
   const [moment, setMoment] = useState<Moment | null>(null);
+  const [taunts, setTaunts] = useState<PropThrow[]>([]);
+  const [latestTaunt, setLatestTaunt] = useState<PropThrow | null>(null);
+  const [tauntError, setTauntError] = useState("");
+  const soundedProps = useRef(new Set<string>());
+  const fallbackPropTimers = useRef(new Map<string, number>());
   const [rollOffResult, setRollOffResult] = useState<{ outcome: string; winnerId?: string } | null>(null);
   const [decisionSeconds, setDecisionSeconds] = useState(0);
   const [resolvingDecisionId, setResolvingDecisionId] = useState<string | null>(null);
@@ -139,6 +144,43 @@ export default function App() {
   const playbackId = useRef(0);
 
   useEffect(() => {
+    if (!taunts.length) return;
+    const timer = window.setTimeout(() => setTaunts([]), 2200);
+    return () => window.clearTimeout(timer);
+  }, [taunts]);
+
+  function handlePropImpact(event: PropThrow) {
+    if (soundedProps.current.has(event.id)) return;
+    soundedProps.current.add(event.id);
+    if (soundedProps.current.size > 64) soundedProps.current.delete(soundedProps.current.values().next().value!);
+    playPropImpactSound(event.item);
+  }
+
+  function resetPropAudio() {
+    for (const timer of fallbackPropTimers.current.values()) window.clearTimeout(timer);
+    fallbackPropTimers.current.clear();
+    soundedProps.current.clear();
+    setTaunts([]);
+  }
+
+  useEffect(() => {
+    if (use3DRaceTable) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    for (const event of taunts) {
+      if (soundedProps.current.has(event.id) || fallbackPropTimers.current.has(event.id)) continue;
+      const timer = window.setTimeout(() => {
+        fallbackPropTimers.current.delete(event.id);
+        handlePropImpact(event);
+      }, reduced ? 0 : 850);
+      fallbackPropTimers.current.set(event.id, timer);
+    }
+  }, [taunts]);
+
+  useEffect(() => () => {
+    for (const timer of fallbackPropTimers.current.values()) window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     window.addEventListener("pointerdown", unlockGameAudio);
     window.addEventListener("keydown", unlockGameAudio);
     return () => {
@@ -154,17 +196,19 @@ export default function App() {
   }, []);
 
   const snapshot = viewState.display;
+  const isSpectator = snapshot?.viewerRole === "spectator";
   const controlSnapshot = viewState.authoritative;
   const playbackBusy = viewState.playbackBusy;
   const game = snapshot?.game;
   const controlGame = controlSnapshot?.game ?? game;
   const me = game?.players.find((player) => player.id === playerId);
   const controlMe = controlGame?.players.find((player) => player.id === playerId);
+  const autoPlay = !!controlMe?.autoPlay;
   const isHost = controlGame?.players[0]?.id === playerId;
   const canStart = controlGame?.phase === "LOBBY" && isHost && controlGame.players.length >= 2;
   const canRollOff = !!controlGame && ["DRAFT_ROLL", "RACE_ROLL"].includes(controlGame.phase)
     && game?.phase === controlGame.phase && !playbackBusy && !rollOffResult
-    && status === "connected" && controlGame.rollCandidateIds.includes(playerId) && !controlMe?.rollValues;
+    && status === "connected" && !autoPlay && controlGame.rollCandidateIds.includes(playerId) && !controlMe?.rollValues;
   const statusText = useMemo(() => t(`status.${status}`), [t, status]);
   useEffect(() => setSelectedIds([]), [snapshot?.game.raceNumber, snapshot?.game.phase]);
 
@@ -210,6 +254,8 @@ export default function App() {
   }
 
   function returnToEntry() {
+    resetPropAudio();
+    setTaunts([]); setLatestTaunt(null); setTauntError("");
     resetPlayback();
     client.current.close();
     setStatus("disconnected");
@@ -228,15 +274,16 @@ export default function App() {
     else if (!snapshot) returnToEntry();
   }
 
-  function joinRoom() {
+  function joinRoom(role: "player" | "spectator" = "player") {
     const normalizedRoomId = roomId.trim().toUpperCase();
     const normalizedName = playerName.trim();
     if (!normalizedRoomId || !normalizedName) return setError(t("errors.missingFields"));
     setError("");
-    const session = loadSession(normalizedRoomId);
+    const session = loadSession(normalizedRoomId, role);
     client.current.connect({
       type: "JOIN_ROOM", roomId: normalizedRoomId, playerName: normalizedName,
       playerId: session?.playerId, reconnectToken: session?.reconnectToken,
+      role,
     }, handleMessage, setStatus);
   }
 
@@ -296,6 +343,11 @@ export default function App() {
     const runId = playbackId.current;
     const resolved = resolvedDecisionDialog(decisionDialogRef.current, item.events, viewerId.current);
     if (resolved) {
+      if (resolved.outcome?.managed) {
+        // Keep the candidates visible even when the bot's answer is already queued.
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 650));
+        if (runId !== playbackId.current) return;
+      }
       showDecision(resolved);
       await new Promise<void>((resolve) => window.setTimeout(resolve, 1200));
       if (runId !== playbackId.current) return;
@@ -357,6 +409,7 @@ export default function App() {
   }
 
   function resetPlaybackForWelcome(message: Extract<ServerMessage, { type: "WELCOME" }>) {
+    resetPropAudio();
     resetPlayback();
     const restoredRolls = new Set<string>();
     const raceKey = message.game.raceNumber - 1;
@@ -382,10 +435,14 @@ export default function App() {
       return;
     }
     if (message.type === "ROOM_LEFT") {
-      clearSession();
+      clearSession(authoritativeSnapshot.current?.viewerRole ?? "player");
       return returnToEntry();
     }
     if (message.type === "ERROR") {
+      if (message.actionId?.startsWith("taunt-")) {
+        setTauntError(errorText(t, message.code, message.message));
+        return;
+      }
       setResolvingDecisionId(null);
       submittedDecisionId.current = null;
       if (authoritativeSnapshot.current) showPendingDecision(authoritativeSnapshot.current);
@@ -398,6 +455,12 @@ export default function App() {
       return setError(errorText(t, message.code, message.message));
     }
     if (message.type === "ACTION_ACK") return;
+    if (message.type === "PROP_THROWN") {
+      setLatestTaunt(message);
+      setTaunts(current => [...current.filter(event => event.id !== message.id), message].slice(-4));
+      if (message.actorId === viewerId.current) setTauntError("");
+      return;
+    }
     if (message.type === "WELCOME") {
       resetPlaybackForWelcome(message);
       rememberAuthoritativeSnapshot(message);
@@ -407,7 +470,7 @@ export default function App() {
       window.location.hash = `/room/${message.roomId}`;
       setRoomId(message.roomId);
       saveSession({ roomId: message.roomId, playerId: message.playerId,
-        reconnectToken: message.reconnectToken, playerName: playerName.trim() });
+        reconnectToken: message.reconnectToken, playerName: playerName.trim(), role: message.viewerRole ?? "player" });
       setError("");
       return;
     }
@@ -431,6 +494,28 @@ export default function App() {
         localRollActionRef.current = null;
         setLocalRollPending(false);
         setDiceResetKey((value) => value + 1);
+      }
+      const prediction = message.game.pendingDecision;
+      const viewer = message.game.players.find(player => player.id === viewerId.current);
+      const manualPrediction = prediction?.abilityName === "GeniusPrediction"
+        && prediction.playerId === viewerId.current
+        && prediction.id !== submittedDecisionId.current
+        && !viewer?.autoPlay;
+      const managedPlayCancelled = viewer && !viewer.autoPlay && message.events.some(event =>
+        event.type === "AUTO_PLAY_CHANGED" && event.playerId === viewerId.current);
+      const playbackBacklog = activePlayback.current || eventPlaybackActive.current || playbackQueue.current.length > 0;
+      if ((manualPrediction && playbackBacklog) || managedPlayCancelled) {
+        // Manual control takes priority over accumulated automatic playback.
+        // Genius also needs its pre-roll choice before the server deadline.
+        const latestDiceValue = latestAuthoritativeDiceValue.current;
+        resetPlayback();
+        shownRolls.current = nextShownRolls;
+        latestAuthoritativeDiceValue.current = latestDiceValue;
+        if (latestDiceValue !== null) setRestingDiceValue(latestDiceValue);
+        publishSnapshot(message);
+        showPendingDecision(message);
+        setError("");
+        return;
       }
       if (message.events.some((event) => event.type === "START_DICE_ROLLED")) {
         enqueueRacePlayback({ revision: message.revision, values: [], events: message.events,
@@ -472,11 +557,14 @@ export default function App() {
   }
 
   function send(intent: GameActionInput, suppliedActionId = actionId()): boolean {
+    if (isSpectator && intent.type !== "LEAVE_ROOM" && intent.type !== "THROW_PROP") return false;
     try {
       client.current.send({ ...intent, actionId: suppliedActionId } as GameAction);
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t("errors.send"));
+      const message = reason instanceof Error ? reason.message : t("errors.send");
+      if (intent.type === "THROW_PROP") setTauntError(message);
+      else setError(message);
       return false;
     }
   }
@@ -639,12 +727,23 @@ export default function App() {
               await pause(use3DRaceTable ? 340 : 220);
             }
           }
+          const award = landingScoreMoment(event, working.game.trackName, working.game.players, t);
+          if (award) {
+            if (cancelled()) return;
+            racer.points += award.scoreAmount!;
+            if (!publish()) return;
+            setMoment(award);
+            playCharacterScoreSound();
+            await pause(1600);
+            if (cancelled()) return;
+          }
         }
       }
       if (event.type === "RACER_TRIPPED" && event.athleteId) {
         const racer = working.game.players.find((player) => player.id === event.playerId)?.activeRacers.find((item) => item.id === event.athleteId);
         if (racer) racer.tripped = true;
         if (!publish()) return;
+        playTripSound();
         await pause(900);
       }
       if (currentMoment) await pause(700);
@@ -675,7 +774,8 @@ export default function App() {
         <section className="join-dock" aria-label={t("entry.joinLabel")}>
           <label><span>{t("entry.playerName")}</span><input value={playerName} maxLength={24} onChange={(event) => setPlayerName(event.target.value)} placeholder={t("entry.playerNamePlaceholder")} /></label>
           <label><span>{t("entry.roomCode")}</span><input value={roomId} maxLength={8} onChange={(event) => setRoomId(event.target.value.toUpperCase())} placeholder={t("entry.roomCodePlaceholder")} /></label>
-          <button className="command primary" onClick={status === "disconnected" ? joinRoom : exitRoom}>{status === "disconnected" ? t("entry.join") : t("entry.cancelJoin")}</button>
+          <button className="command primary" onClick={status === "disconnected" ? () => joinRoom() : exitRoom}>{status === "disconnected" ? t("entry.join") : t("entry.cancelJoin")}</button>
+          <button className="command secondary" disabled={status !== "disconnected"} onClick={() => joinRoom("spectator")}>{t("spectator.join")}</button>
           <button className="command secondary" disabled={status !== "disconnected"} onClick={createRoom}>{t("entry.createRoom")}</button>
           <span className={`connection ${status}`}>{statusText}</span>
           {error && <p className="error">{error}</p>}
@@ -691,9 +791,28 @@ export default function App() {
   const feedCount = game!.raceLog.length || feed.length;
   const liveDecision = decisionDialog?.decision;
   const decisionOutcome = decisionDialog?.outcome;
+  const decisionOwner = controlGame?.players.find(player => player.id === liveDecision?.playerId);
+  const decisionIsAutomated = !!(decisionOwner?.isBot || decisionOwner?.autoPlay);
   const decisionPlayerName = game?.players.find((player) => player.id === liveDecision?.playerId)?.name;
   const chosenOption = liveDecision?.options.find((option) => option.id === decisionOutcome?.optionId);
   const chosenLabel = chosenOption ? decisionOptionLabel(chosenOption.label, t) : t("common.automatic");
+  const decisionPanel = liveDecision ? (
+        <section className={`decision-dialog ${decisionOutcome ? "resolved" : ""}`} role="dialog" aria-modal={immersiveRace ? undefined : true} aria-labelledby="decision-title" aria-describedby="decision-description" tabIndex={-1}>
+          <header><div><small>{athleteName(liveDecision.athleteId, liveDecision.athleteName)}</small><h2 id="decision-title">{decisionTitle(liveDecision, t)}</h2></div><strong className={decisionOutcome ? "decision-result-badge" : decisionIsAutomated ? "decision-auto-badge" : undefined}>{decisionOutcome ? t("decision.replayBadge") : decisionIsAutomated ? t("decision.autoChoosing") : `${decisionSeconds}s`}</strong></header>
+          {autoPlay && <button className="command secondary decision-cancel-auto" disabled={status !== "connected"}
+            onClick={() => send({ type: "SET_AUTO_PLAY", enabled: false })}>{t("autoPlay.disable")}</button>}
+          {liveDecision.rollPreview && <p className="decision-roll">{t("decision.rollPreview")} <strong>{liveDecision.rollPreview.value}</strong>{liveDecision.rollPreview.finalValue !== liveDecision.rollPreview.value && <small>{t("decision.finalMove", { value: liveDecision.rollPreview.finalValue })}</small>}</p>}
+          <p id="decision-description">{decisionPrompt(liveDecision, t)}</p>
+          <div className="decision-options">{liveDecision.options.map((option) => <button className={`command secondary ${option.id === decisionOutcome?.optionId ? "decision-chosen" : ""}`} key={option.id}
+            ref={option.id === decisionOutcome?.optionId ? node => node?.scrollIntoView({block: "nearest"}) : undefined}
+            disabled={autoPlay || !!decisionOutcome || liveDecision.playerId !== playerId || status !== "connected" || playbackBusy || resolvingDecisionId === liveDecision.id || controlGame?.pendingDecision?.id !== liveDecision.id}
+            onClick={() => resolveDecision(liveDecision.id, option.id)}>{decisionOptionLabel(option.label, t)}
+            {option.athlete && <AthleteSkill athlete={option.athlete} />}
+            {option.ownerName != null && <small className="decision-option-detail">{t("race:decision.optionDetail", { owner: option.ownerName, position: option.position })}</small>}</button>)}</div>
+          {decisionOutcome ? <small aria-live="polite">{t(decisionOutcome.managed ? "decision.replayManaged" : decisionOutcome.automatic ? "decision.replayTimeout" : "decision.replayChosen", { name: decisionPlayerName, label: chosenLabel })}</small>
+            : liveDecision.playerId !== playerId && <small>{t("decision.waitingFor", { name: decisionPlayerName })}</small>}
+        </section>
+  ) : null;
 
   return (
     <main className={`table ${game?.phase === "CHARACTER_SELECTION" ? "selection-view" : ""} ${immersiveRace ? "immersive-race" : ""} ${raceDetailsOpen ? "race-details-open" : ""} ${immersiveRace && feedOpen ? "feed-sidebar-open" : ""}`}>
@@ -705,10 +824,22 @@ export default function App() {
           </div>)}
         </div>
         <div className="room-code">{musicToggle}
+          {game!.phase === "RACING" && <TauntPanel players={game!.players} viewerId={playerId} connected={status === "connected"} latest={latestTaunt} error={tauntError} onThrow={(targetPlayerId, item) => {
+            setTauntError("");
+            return send({ type: "THROW_PROP", targetPlayerId, item }, `taunt-${actionId()}`);
+          }} />}
+          {!isSpectator && controlMe && <button className="auto-play-toggle" aria-pressed={autoPlay} disabled={status !== "connected"} title={t("autoPlay.hint")} onClick={() => send({ type: "SET_AUTO_PLAY", enabled: !autoPlay })}>{t(autoPlay ? "autoPlay.disable" : "autoPlay.enable")}</button>}
           {immersiveRace && <button className="feed-toggle" aria-expanded={feedOpen} aria-controls="race-feed" onClick={() => setFeedOpen(!feedOpen)}>{t("topbar.feed")}<span className="event-feed-count">{feedCount}</span></button>}
           <LanguageSwitcher compact />
           <small>{t("topbar.room")}</small><strong>{snapshot.roomId}</strong><span className={`status-dot ${status}`} /></div>
       </header>
+
+      {(isSpectator || (snapshot.spectators?.length ?? 0) > 0) && <aside className="spectator-bar" aria-label={t("spectator.seats")}>
+        <details><summary>{isSpectator && <strong>{t("spectator.watching")} · </strong>}{t("spectator.count", { count: snapshot.spectators?.filter((member) => member.connected).length ?? 0 })}</summary>
+          <p>{snapshot.spectators?.map((member) => <span key={member.id}>{member.name}{!member.connected && ` (${t("status.disconnected")})`} </span>)}</p>
+        </details>
+        {isSpectator && <button onClick={status === "disconnected" ? () => joinRoom("spectator") : exitRoom}>{t(status === "disconnected" ? "spectator.reconnect" : "spectator.leave")}</button>}
+      </aside>}
 
       {game!.phase === "LOBBY" && (
         <section className="lobby-stage stage">
@@ -732,7 +863,7 @@ export default function App() {
             <button className={!game!.autoDeal ? "active" : ""} disabled={!isHost} onClick={() => send({ type: "SET_AUTO_DEAL", autoDeal: false })}>{t("lobby.dealManual")}</button>
             <button className={game!.autoDeal ? "active" : ""} disabled={!isHost} onClick={() => send({ type: "SET_AUTO_DEAL", autoDeal: true })}>{t("lobby.dealAuto", { cards: game!.cardsPerPlayer })}</button>
           </div>
-          <button className="command secondary" disabled={status !== "connected"} onClick={exitRoom}>{t("lobby.leave")}</button>
+          {!isSpectator && <button className="command secondary" disabled={status !== "connected"} onClick={exitRoom}>{t("lobby.leave")}</button>}
           <button className="command primary big" disabled={!canStart} onClick={() => send({ type: "START_GAME" })}>{isHost ? t("lobby.start") : t("lobby.waitingHost")}</button>
         </section>
       )}
@@ -758,7 +889,7 @@ export default function App() {
           <div className="stage-title row"><div><p className="kicker">DRAFT {game!.draftRound} / {game!.draftRoundCount}</p><h2>{game!.activePlayerId === playerId ? t("draft.yourTurn")
               : t("draft.waitingFor", { name: game!.players.find((p) => p.id === game!.activePlayerId)?.name })}</h2></div><p>{t("draft.pool")}</p></div>
           <div className="draft-layout">
-            <div className="draft-pool">{game!.draftPool.map((athlete) => <SelectionCard key={athlete.id} athlete={athlete} accent={cardAccents[athlete.id] ?? "#f2bd27"} recruit disabled={game!.activePlayerId !== playerId || status !== "connected"} reason={t("draft.notYet")} onChoose={() => send({ type: "DRAFT_ATHLETE", athleteId: athlete.id })} />)}</div>
+            <div className="draft-pool">{game!.draftPool.map((athlete) => <SelectionCard key={athlete.id} athlete={athlete} accent={cardAccents[athlete.id] ?? "#f2bd27"} recruit disabled={autoPlay || game!.activePlayerId !== playerId || status !== "connected"} reason={t("draft.notYet")} onChoose={() => send({ type: "DRAFT_ATHLETE", athleteId: athlete.id })} />)}</div>
             <aside className="team-board"><h3>{t("draft.team")}</h3>{game!.players.map((player, index) => <div className="team-row" key={player.id}><span className={`color-chip ${playerColors[index]}`} /><strong>{player.name}</strong><div>{player.team.map((athlete) => <span title={cardName(athlete)} key={athlete.id}>{cardName(athlete).slice(0, 1)}</span>)}</div><small>{player.team.length} / {game!.cardsPerPlayer}</small></div>)}</aside>
           </div>
         </section>
@@ -766,20 +897,21 @@ export default function App() {
 
       {game!.phase === "CHARACTER_SELECTION" && (
         <section className="selection-stage stage">
-          <div className="selection-heading"><p className="kicker">RACE {game!.raceNumber} · {tracks[game!.raceNumber - 1]}</p><h2>{t("selection.title")}</h2><p>{t(game!.selectionCount === 1 ? "selection.hintOne" : "selection.hintMany", { count: game!.selectionCount })}</p></div>
+          <div className="selection-heading"><p className="kicker">RACE {game!.raceNumber} · {tracks[game!.raceNumber - 1]}</p><h2>{t(isSpectator ? "spectator.selection" : "selection.title")}</h2><p>{t(isSpectator ? "spectator.selectionHint" : game!.selectionCount === 1 ? "selection.hintOne" : "selection.hintMany", { count: game!.selectionCount })}</p></div>
           <div className="selection-meta"><strong>{t("selection.yourTeam", { count: me?.team.length ?? 0 })}</strong><span>{t("selection.rewards", { first: game!.raceRewards[0], second: game!.raceRewards[1] })}</span></div>
-          <div className="my-team">{me?.team.map((athlete) => <SelectionCard key={athlete.id} athlete={athlete} accent={cardAccents[athlete.id] ?? "#f2bd27"} used={me.usedAthleteIds.includes(athlete.id)} selected={selectedIds.includes(athlete.id)} disabled={me.selectionLocked || (!selectedIds.includes(athlete.id) && selectedIds.length >= game!.selectionCount)} reason={me.selectionLocked ? t("selection.locked") : t("selection.full", { count: game!.selectionCount })} onChoose={() => toggleRacer(athlete.id)} />)}</div>
-          <div className="selection-dock"><div className="selection-dock-inner"><div className="selection-chosen" aria-live="polite"><strong>{me?.team.filter((athlete) => selectedIds.includes(athlete.id)).map((athlete) => cardName(athlete)).join(" · ") || t("selection.nothingPicked")}</strong><span>{selectedIds.length} / {game!.selectionCount}</span></div><button className="selection-confirm" disabled={selectedIds.length !== game!.selectionCount || me?.selectionLocked || status !== "connected"} onClick={() => send({ type: "SELECT_RACERS", athleteIds: selectedIds })}>{me?.selectionLocked ? t("selection.locked") : status !== "connected" ? t("selection.reconnecting") : t("selection.confirm")}</button><p className="selection-ready">{t("selection.ready", { ready: game!.players.filter((player) => player.selectionLocked).length, total: game!.players.length })}</p></div></div>
+          <div className="my-team">{me?.team.map((athlete) => <SelectionCard key={athlete.id} athlete={athlete} accent={cardAccents[athlete.id] ?? "#f2bd27"} used={me.usedAthleteIds.includes(athlete.id)} selected={selectedIds.includes(athlete.id)} disabled={autoPlay || me.selectionLocked || (!selectedIds.includes(athlete.id) && selectedIds.length >= game!.selectionCount)} reason={me.selectionLocked ? t("selection.locked") : t("selection.full", { count: game!.selectionCount })} onChoose={() => toggleRacer(athlete.id)} />)}</div>
+          <div className="selection-dock"><div className="selection-dock-inner">{!isSpectator && <><div className="selection-chosen" aria-live="polite"><strong>{me?.team.filter((athlete) => selectedIds.includes(athlete.id)).map((athlete) => cardName(athlete)).join(" · ") || t("selection.nothingPicked")}</strong><span>{selectedIds.length} / {game!.selectionCount}</span></div><button className="selection-confirm" disabled={autoPlay || selectedIds.length !== game!.selectionCount || me?.selectionLocked || status !== "connected"} onClick={() => send({ type: "SELECT_RACERS", athleteIds: selectedIds })}>{me?.selectionLocked ? t("selection.locked") : status !== "connected" ? t("selection.reconnecting") : t("selection.confirm")}</button></>}<p className="selection-ready">{t("selection.ready", { ready: game!.players.filter((player) => player.selectionLocked).length, total: game!.players.length })}</p></div></div>
         </section>
       )}
 
       {game!.phase === "RACING" && (
         <section className="race-stage stage">
-          <div className="race-heading"><div><p className="kicker">RACE {game!.raceNumber} / 4</p><h2>{tracks[game!.raceNumber - 1]}</h2></div><div className="reward"><span>🏆 {game!.raceRewards[0]}</span><span>◉ {game!.raceRewards[1]}</span></div></div>
+          <div className="race-heading"><div><p className="kicker">RACE {game!.raceNumber} / 4</p><h2>{tracks[game!.raceNumber - 1]}</h2></div><RaceRewards rewards={game!.raceRewards} /></div>
+          {moment && !use3DRaceTable && <div className="race-moment-slot"><ActionMoment moment={moment} /></div>}
           {use3DRaceTable ? <Suspense fallback={<div className="race-table-loading" aria-label={t("race.loading")} />}>
-            <RaceTableScene turnKey={rollAnimation?.autoThrow ? `playback-${rollAnimation.revision}-${rollAnimation.index}` : raceDiceTurnKey(game!, playbackBusy)} moment={moment} focus={cameraFocus ?? (game!.pendingDecision ? { athleteId: game!.pendingDecision.athleteId, playerId: game!.pendingDecision.playerId, close: true } : raceRollFocus(game!))} activePlayerId={game!.activePlayerId} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} dice={{
+            <RaceTableScene decision={decisionPanel} taunts={taunts} onPropImpact={handlePropImpact} turnKey={rollAnimation?.autoThrow ? `playback-${rollAnimation.revision}-${rollAnimation.index}` : raceDiceTurnKey(game!, playbackBusy)} moment={moment} focus={cameraFocus ?? (game!.pendingDecision ? { athleteId: game!.pendingDecision.athleteId, playerId: game!.pendingDecision.playerId, close: true } : raceRollFocus(game!))} activePlayerId={game!.activePlayerId} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} dice={{
               playbackBusy,
-              enabled: canRollRaceDice(
+              enabled: !autoPlay && canRollRaceDice(
                 controlGame,
                 playerId,
                 localRollPending || playbackBusy || !!rollAnimation || status !== "connected",
@@ -796,38 +928,31 @@ export default function App() {
           </Suspense> : <div className="track-wrap"><RaceTrack moment={moment} players={game!.players} finishLine={game!.finishLine} trackName={game!.trackName} /></div>}
           <div className="race-console">
             <div className="score-strip">{game!.players.map((player, index) => <div className={game!.activePlayerId === player.id ? "active" : ""} key={player.id}><span className={`color-chip ${playerColors[index]}`} /><strong>{player.name}</strong><small>{scoreLabel(player, game!.phase, t)}</small></div>)}</div>
-            {!use3DRaceTable && <button className="command dice-command" disabled={!canRollRaceDice(
+            <p className="taunt-recap" aria-live="polite">{latestTaunt ? `${propEmoji(latestTaunt.item)} ${t("taunts.thrown", { actor: latestTaunt.actorName, target: latestTaunt.targetName, item: t(`taunts.${latestTaunt.item}`) })}` : t("taunts.idle")}</p>
+            {!use3DRaceTable && <button className="command dice-command" disabled={autoPlay || !canRollRaceDice(
               controlGame,
               playerId,
               localRollPending || playbackBusy || !!rollAnimation || status !== "connected",
             )} onClick={() => throwRaceDice(actionId())}>{t("race.roll")}</button>}
           </div>
           {use3DRaceTable && <button className="race-details-toggle" aria-expanded={raceDetailsOpen} aria-controls="race-roster" onClick={() => setRaceDetailsOpen(!raceDetailsOpen)}>{raceDetailsOpen ? t("race.hideCards") : t("race.showCards")}</button>}
+          <RaceLeaderboard players={game!.players} viewerId={playerId} activePlayerId={game!.activePlayerId} activeAthleteId={game!.activeAthleteId} />
+          <RaceRosterLayer open={raceDetailsOpen} inline={!use3DRaceTable} onClose={() => setRaceDetailsOpen(false)}>
           <section id="race-roster" className="race-roster" aria-label={t("race.cardsTitle")}>
             <div className="race-roster-heading"><p className="kicker">RACERS IN PLAY</p><h3>{t("race.cardsHeading")}</h3></div>
             <div className="race-roster-scroll">
               {game!.players.map((player, index) => <article className={`racer-owner ${game!.activePlayerId === player.id ? "active" : ""}`} key={player.id}>
                 <header><span className={`color-chip ${playerColors[index]}`} /><strong>{player.name}</strong>{player.id === playerId && <small>{t("common.you")}</small>}</header>
-                <div>{player.activeRacers.map((racer) => <RacerCard key={racer.id} athlete={racer} compact status={racerStatus(racer, t)} />)}</div>
+                <div>{player.activeRacers.map((racer) => <RacerCard key={racer.id} athlete={racer} status={racerStatus(racer, t)} />)}</div>
               </article>)}
             </div>
           </section>
+          </RaceRosterLayer>
         </section>
       )}
 
-      {moment && <ActionMoment moment={moment} />}
-      {liveDecision && <div className={`decision-backdrop ${decisionOutcome ? "resolved" : ""}`}>
-        <section className="decision-dialog" role="dialog" aria-modal="true" aria-labelledby="decision-title">
-          <header><div><small>{athleteName(liveDecision.athleteId, liveDecision.athleteName)}</small><h2 id="decision-title">{decisionTitle(liveDecision, t)}</h2></div><strong className={decisionOutcome ? "decision-result-badge" : undefined}>{decisionOutcome ? t("decision.replayBadge") : `${decisionSeconds}s`}</strong></header>
-          {liveDecision.rollPreview && <p className="decision-roll">{t("decision.rollPreview")} <strong>{liveDecision.rollPreview.value}</strong>{liveDecision.rollPreview.finalValue !== liveDecision.rollPreview.value && <small>{t("decision.finalMove", { value: liveDecision.rollPreview.finalValue })}</small>}</p>}
-          <p>{decisionPrompt(liveDecision, t)}</p>
-          <div className="decision-options">{liveDecision.options.map((option) => <button className={`command secondary ${option.id === decisionOutcome?.optionId ? "decision-chosen" : ""}`} key={option.id}
-            disabled={!!decisionOutcome || liveDecision.playerId !== playerId || status !== "connected" || playbackBusy || resolvingDecisionId === liveDecision.id || controlGame?.pendingDecision?.id !== liveDecision.id}
-            onClick={() => resolveDecision(liveDecision.id, option.id)}>{decisionOptionLabel(option.label, t)}{option.ownerName != null && <small className="decision-option-detail">{t("race:decision.optionDetail", { owner: option.ownerName, position: option.position })}</small>}</button>)}</div>
-          {decisionOutcome ? <small aria-live="polite">{t(decisionOutcome.automatic ? "decision.replayTimeout" : "decision.replayChosen", { name: decisionPlayerName, label: chosenLabel })}</small>
-            : liveDecision.playerId !== playerId && <small>{t("decision.waitingFor", { name: decisionPlayerName })}</small>}
-        </section>
-      </div>}
+      {moment && game!.phase !== "RACING" && <ActionMoment moment={moment} />}
+      {liveDecision && !immersiveRace && <div className={`decision-backdrop ${decisionOutcome ? "resolved" : ""}`}>{decisionPanel}</div>}
 
       {(game!.phase === "RACE_RESULTS" || game!.phase === "FINISHED") && (
         <section className="results-stage stage">
@@ -838,7 +963,7 @@ export default function App() {
             : t("results.raceTitle")}</h2></div>
           <div className="podium-celebration" aria-hidden="true"><i className="confetti confetti-one">✦</i><i className="confetti confetti-two">✧</i><i className="firework firework-one">✹</i><i className="firework firework-two">✺</i></div>
           <div className="podium-list">{game!.players.slice().sort((a, b) => b.score - a.score).map((player, index) => <div key={player.id} className={index === 0 ? "leader" : index === 1 ? "second" : ""}><span>{index + 1}</span><strong>{player.name}</strong><div className="result-racers">{game!.raceResults.filter((result) => result.playerId === player.id).map((result) => <small key={result.athlete.id}>{cardName(result.athlete)} +{result.points}</small>)}</div><b>{t("results.points", { score: player.score })}</b></div>)}</div>
-          {game!.phase === "RACE_RESULTS" && <button className="command primary big" disabled={!isHost} onClick={() => send({ type: "ADVANCE_RACE" })}>{isHost ? t("results.next") : t("results.waitingHost")}</button>}
+          {game!.phase === "RACE_RESULTS" && <button className="command primary big" disabled={autoPlay || !isHost} onClick={() => send({ type: "ADVANCE_RACE" })}>{isHost ? t("results.next") : t("results.waitingHost")}</button>}
         </section>
       )}
 

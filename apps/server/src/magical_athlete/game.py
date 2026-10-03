@@ -65,6 +65,8 @@ class GameState:
     pending_roll: dict[str, Any] | None = None
     race_log: tuple[dict[str, Any], ...] = ()
     resolution_status: str = "IDLE"
+    # Append fields to preserve the positional state used by frozen dataclass pickles.
+    race_winner_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,6 +368,8 @@ class MagsimGameEngine:
             defer_setup=True,
         )
         scenario.engine.verbose = False
+        scenario.state.previous_winners = tuple(ATHLETE_BY_ID[athlete_id].engine_name
+                                               for athlete_id in state.race_winner_ids)
         scenario.engine.continue_setup()
         pending = self._pending_decision(state, scenario.engine, owners, athletes)
         return replace(
@@ -584,6 +588,10 @@ class MagsimGameEngine:
             "options": pending.public_options(),
         }
         for option, value in zip(public["options"], pending.options):
+            candidate_name = getattr(value, "racer_name", None)
+            candidate = next((card for card in ATHLETE_CATALOG if card.engine_name == candidate_name), None)
+            if candidate is not None:
+                option["athlete"] = candidate.public_data()
             target_idx = getattr(value, "idx", None)
             if target_idx in athlete_map:
                 target_owner = owner_map[target_idx]
@@ -649,10 +657,17 @@ class MagsimGameEngine:
 
     def _positions(self, state: GameState) -> dict[str, int]:
         engine = state.magsim_engine
+        preview = self._preview_positions(engine)
         return {
-            state.racer_athlete_by_index[racer.idx].id: racer.position or 0
+            state.racer_athlete_by_index[racer.idx].id: preview.get(racer.idx, racer.position or 0)
             for racer in engine.state.racers
         }
+
+    @staticmethod
+    def _preview_positions(engine: Any) -> dict[int, int]:
+        return {event.target_racer_idx: event.end_tile
+                for event in getattr(engine, "preview_events", ())
+                if event.__class__.__name__ in {"PostMoveEvent", "PostWarpEvent"}}
 
     def _finish_race(
         self, state: GameState, events: list[dict[str, Any]]
@@ -669,7 +684,8 @@ class MagsimGameEngine:
         scores = {player.id: state.scores[player.id] + race_points[player.id] for player in state.players}
         used = state.used_athlete_ids.union(athlete.id for selected in state.selections.values() for athlete in selected)
         events.append({"type": "RACE_FINISHED", "raceNumber": state.race_number + 1})
-        next_state = replace(state, phase=GamePhase.FINISHED if state.race_number == 3 else GamePhase.RACE_RESULTS, positions=positions, scores=scores, used_athlete_ids=frozenset(used), active_player_id=None, race_results=tuple(results), pending_decision=None, pending_roll=None, resolution_status="IDLE")
+        winners = tuple(result["athlete"]["id"] for result in results if result["finishPosition"] == 1)
+        next_state = replace(state, phase=GamePhase.FINISHED if state.race_number == 3 else GamePhase.RACE_RESULTS, positions=positions, scores=scores, used_athlete_ids=frozenset(used), active_player_id=None, race_results=tuple(results), race_winner_ids=state.race_winner_ids + winners, pending_decision=None, pending_roll=None, resolution_status="IDLE")
         return self._transition_with_log(next_state, events)
 
     def _advance_turn_flow(
@@ -878,15 +894,24 @@ class MagsimGameEngine:
             events.append({"type": "TRIP_RECOVERED", **base})
 
     def public_state(self, state: GameState, viewer_id: str | None = None) -> dict[str, Any]:
+        from magsim.core.abilities import CopyAbilityProtocol
+
         revealed = state.phase in (GamePhase.RACING, GamePhase.RACE_RESULTS, GamePhase.FINISHED)
         active_racers_by_owner: dict[str, list[dict[str, Any]]] = {player.id: [] for player in state.players}
         if state.magsim_engine is not None:
+            preview_positions = self._preview_positions(state.magsim_engine)
             for racer in state.magsim_engine.state.racers:
                 owner = state.racer_owner_by_index[racer.idx]
                 athlete = state.racer_athlete_by_index[racer.idx]
+                copied_name = next((
+                    ability.copied_racer for ability in racer.active_abilities
+                    if isinstance(ability, CopyAbilityProtocol) and ability.copied_racer is not None
+                ), None)
+                copied_athlete = next((card for card in ATHLETE_CATALOG if card.engine_name == copied_name), None)
                 active_racers_by_owner[owner].append({
                     **athlete.public_data(),
-                    "position": racer.position or 0,
+                    **({"copiedAthlete": copied_athlete.public_data()} if copied_athlete is not None else {}),
+                    "position": preview_positions.get(racer.idx, racer.position or 0),
                     "points": racer.victory_points,
                     "finished": racer.finished,
                     "finishPosition": racer.finish_position,
@@ -937,6 +962,7 @@ class MagsimGameEngine:
             "draftRoundCount": self._draft_round_count(state),
             "rollCandidateIds": list(state.roll_candidates),
             "raceResults": list(state.race_results),
+            "previousWinners": [ATHLETE_BY_ID[athlete_id].public_data() for athlete_id in state.race_winner_ids],
             "pendingDecision": state.pending_decision,
             "pendingRoll": state.pending_roll,
             "raceLog": list(state.race_log),

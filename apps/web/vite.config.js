@@ -18,7 +18,14 @@ export default defineConfig(({ mode }) => {
     }
     return {
         base,
-        plugins: [react()],
+        plugins: [react(), {
+            name: "room-preview-socket-errors",
+            configureServer(server) {
+                server.httpServer?.prependListener("upgrade", (_request, socket) => {
+                    socket.on("error", () => socket.destroy());
+                });
+            },
+        }],
         server: {
             proxy: {
                 "/api": "http://localhost:8000",

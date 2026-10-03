@@ -123,6 +123,10 @@ class GameEngine:
     _turn_in_progress: bool = field(default=False, init=False)
     _turn_end_triggered: bool = field(default=False, init=False)
     _main_roll_requested: bool = field(default=False, init=False)
+    # An interactive landing may replay internally. Its already-visible prefix
+    # remains on the board while the player chooses, and is emitted only once.
+    preview_events: tuple[GameEvent, ...] = ()
+    _preview_serial: int | None = None
 
     def __post_init__(self) -> None:
         """Assigns starting abilities to all racers and fires on_gain hooks."""
@@ -363,19 +367,28 @@ class GameEngine:
                 self._handle_event(sched.event)
             except DecisionRequired:
                 self._restore_transaction(snapshot)
+                self._publish_event_prefix(sched.serial, committed_events, callback)
                 return TurnProgress.WAITING_FOR_DECISION
             except RollRequired:
                 self._restore_transaction(snapshot)
+                self._publish_event_prefix(sched.serial, committed_events, callback)
                 return TurnProgress.WAITING_FOR_ROLL
             finally:
                 self.on_event_processed = callback
-            # Observers must not see movement that was rolled back for a choice.
-            if callback is not None:
-                for event in committed_events:
-                    callback(self, event)
+            self._publish_event_prefix(sched.serial, committed_events, callback)
+            self.preview_events = ()
+            self._preview_serial = None
             self._commit_interactions()
         self._turn_in_progress = False
         return TurnProgress.TURN_COMPLETE
+
+    def _publish_event_prefix(self, serial, events, callback) -> None:
+        previous = self.preview_events if self._preview_serial == serial else ()
+        if callback is not None:
+            for event in events[len(previous):]:
+                callback(self, event)
+        self.preview_events = tuple(events)
+        self._preview_serial = serial
 
     def request_roll_sequence(
         self,

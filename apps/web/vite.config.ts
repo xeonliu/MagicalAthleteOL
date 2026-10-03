@@ -17,7 +17,16 @@ export default defineConfig(({ mode }) => {
   }
   return {
     base: "/MagicalAthleteOL/",
-    plugins: [react()],
+    plugins: [react(), {
+      name: "room-preview-socket-errors",
+      configureServer(server) {
+        // Attach before HMR/proxy upgrade handlers: a phone can reset its socket
+        // while the handshake is pending, before either handler owns the socket.
+        server.httpServer?.prependListener("upgrade", (_request, socket) => {
+          socket.on("error", () => socket.destroy());
+        });
+      },
+    }],
     server: {
       proxy: {
         "/api": "http://localhost:8000",

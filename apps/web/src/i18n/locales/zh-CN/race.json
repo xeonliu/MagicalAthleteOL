@@ -71,7 +71,8 @@
       "SuckerfishRideIdle": "同格赛车手刚刚移动，{{source}}选择跟随",
       "ThirdWheelJoin": "{{source}}选择加入恰好有两名赛车手的格子",
       "SkipperTurn": "本次掷出了 1",
-      "DuelistDuel": "{{target}}赢得本次决斗"
+      "DuelistDuel": "{{target}}赢得本次决斗",
+      "VictoryPointTile": "{{target}}停在得分格上"
     },
     "causeFallback": {
       "system": "执行本次掷骰移动",
@@ -96,12 +97,15 @@
       "skipperTurn": "获得下一个回合",
       "coachBoost": "本次移动 +1",
       "hugeBabyBlocker": "落点向后调整 1 格",
-      "movementAdjust": "移动调整 {{value}}"
+      "movementAdjust": "移动调整 {{value}}",
+      "scored": "获得 {{count}} 分"
     }
   },
   "decision": {
     "titleFallback": "{{athlete}}的技能",
     "skip": "不使用",
+    "use": "使用",
+    "chooseAction": "选择操作",
     "suckerfishFollow": "是否跟随{{name}}，从第 {{from}} 格移动到第 {{to}} 格？",
     "chooseDie": "选择本次使用的骰点",
     "chooseTile": "选择本次传送到的格子",
@@ -133,5 +137,9 @@
     "draft": "{{name}} 获得首位招募权",
     "race": "{{name}} 获得本场先手",
     "tie": "{{names}} 点数相同，需要重掷"
+  },
+  "rewards": {
+    "first": "冠军奖杯",
+    "second": "亚军银花"
   }
 }

@@ -1,3 +1,5 @@
+import { schedulePropImpactCue, scheduleTripCue, scheduleVictoryCue } from "./audioEffects";
+
 let context: AudioContext | null = null;
 let sfxOutput: GainNode | null = null;
 
@@ -50,14 +52,18 @@ export function playMoveSound() {
 }
 
 export function playPodiumSound(place: 1 | 2) {
-  if (place === 1) {
-    tone(523, 0.18, 0, "sine", 0.055);
-    tone(659, 0.18, 0.13, "sine", 0.06);
-    tone(784, 0.42, 0.26, "sine", 0.07);
-  } else {
-    tone(392, 0.16, 0, "sine", 0.05);
-    tone(494, 0.28, 0.12, "sine", 0.06);
-  }
+  const audio = getGameAudioContext();
+  if (audio) scheduleVictoryCue(audio, getSfxOutput(audio), place);
+}
+
+export function playTripSound() {
+  const audio = getGameAudioContext();
+  if (audio) scheduleTripCue(audio, getSfxOutput(audio));
+}
+
+export function playPropImpactSound(item: "egg" | "tomato") {
+  const audio = getGameAudioContext();
+  if (audio) schedulePropImpactCue(audio, getSfxOutput(audio), item);
 }
 
 export function unlockGameAudio() { getGameAudioContext(); }

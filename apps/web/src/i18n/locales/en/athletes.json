@@ -213,6 +213,6 @@
     "name": "Twin",
     "abilityTitle": "Double Dip",
     "summary": "Before my race, I can pick a racer who won a previous race and use their powers.",
-    "details": "Any racer who won an earlier race this game qualifies, and I still use the Twin token. I also get that racer's \"before my race\" power. It is not a copy of whatever my current opponents are doing."
+    "details": "Choose an actual winner of any earlier race in this game, while keeping the Twin token. I also get that racer's \"before my race\" power. There is no target in the first race, and candidates are never randomly generated."
   }
 }

@@ -71,7 +71,8 @@
       "SuckerfishRideIdle": "A racer on the space moved, so {{source}} followed",
       "ThirdWheelJoin": "{{source}} joined a space with exactly two racers",
       "SkipperTurn": "A 1 was rolled",
-      "DuelistDuel": "{{target}} won the duel"
+      "DuelistDuel": "{{target}} won the duel",
+      "VictoryPointTile": "{{target}} lands on a scoring space"
     },
     "causeFallback": {
       "system": "Carried out the dice move",
@@ -96,12 +97,15 @@
       "skipperTurn": "Takes the next turn",
       "coachBoost": "This move +1",
       "hugeBabyBlocker": "Adjusted 1 space back",
-      "movementAdjust": "Movement {{value}}"
+      "movementAdjust": "Movement {{value}}",
+      "scored": "Gain {{count}} point"
     }
   },
   "decision": {
     "titleFallback": "{{athlete}}'s power",
     "skip": "Decline",
+    "use": "Use",
+    "chooseAction": "Choose an action",
     "suckerfishFollow": "Follow {{name}} from space {{from}} to space {{to}}?",
     "chooseDie": "Choose the die value to use",
     "chooseTile": "Choose the space to warp to",
@@ -133,5 +137,9 @@
     "draft": "{{name}} takes the first draft pick",
     "race": "{{name}} takes first turn this race",
     "tie": "{{names}} tied, so they roll again"
+  },
+  "rewards": {
+    "first": "First prize",
+    "second": "Second prize"
   }
 }

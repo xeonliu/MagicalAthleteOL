@@ -46,6 +46,13 @@ class AbilityCopyLead(Ability, SelectionDecisionMixin[ActiveRacerState]):
     current_copied_racer: RacerState | Literal["start_of_game"] | None = "start_of_game"
 
     @property
+    def copied_racer(self) -> RacerName | None:
+        """Expose the current target through the shared copy-ability contract."""
+        if isinstance(self.current_copied_racer, RacerState):
+            return self.current_copied_racer.name
+        return None
+
+    @property
     def _current_copied_racer_repr(self) -> str:
         if not isinstance(self.current_copied_racer, RacerState):
             msg = f"Unexpected type for self.current_copied_racer {type(self.current_copied_racer)}"

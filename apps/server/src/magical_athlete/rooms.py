@@ -4,6 +4,7 @@ import asyncio
 import random
 import secrets
 import string
+import time
 from datetime import UTC, datetime, timedelta
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -31,8 +32,10 @@ from .protocol import (
     ResolveDecisionIntent,
     SelectRacersIntent,
     SetAutoDealIntent,
+    SetAutoPlayIntent,
     SetVariantIntent,
     StartGameIntent,
+    ThrowPropIntent,
 )
 
 
@@ -40,6 +43,8 @@ ROLL_ANIMATION_LEAD_SECONDS = 0.35
 # Bots pause briefly before acting so their moves read as deliberate on every client.
 BOT_ACTION_DELAY_SECONDS = 1.1
 ACTION_TIME_LIMIT_SECONDS = 60
+SPECTATOR_LIMIT = 20
+TAUNT_COOLDOWN_SECONDS = 4
 
 
 class RoomError(Exception):
@@ -62,6 +67,8 @@ class RoomPlayer:
     socket: RoomSocket | None = None
     seen_action_ids: set[str] = field(default_factory=set)
     is_bot: bool = False
+    auto_play: bool = False
+    taunt_ready_at: float = 0
 
 
 @dataclass(slots=True)
@@ -69,6 +76,7 @@ class Room:
     id: str
     engine: GameEngine
     players: dict[str, RoomPlayer] = field(default_factory=dict)
+    spectators: dict[str, RoomPlayer] = field(default_factory=dict)
     game_state: GameState | None = None
     revision: int = 0
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -78,6 +86,9 @@ class Room:
     roll_deadline: datetime | None = None
     bot_task: asyncio.Task[None] | None = None
     bot_deadline: datetime | None = None
+
+    def member(self, member_id: str) -> RoomPlayer | None:
+        return self.players.get(member_id) or self.spectators.get(member_id)
 
     def public_state(self, viewer_id: str | None = None) -> dict[str, Any]:
         if self.game_state is None:
@@ -99,7 +110,11 @@ class Room:
             player["connected"] = connected.get(player["id"], False)
             member = self.players.get(player["id"])
             player["isBot"] = member.is_bot if member is not None else False
-        return {"roomId": self.id, "revision": self.revision, "game": game}
+            player["autoPlay"] = member.auto_play if member is not None else False
+        return {"roomId": self.id, "revision": self.revision, "game": game,
+                "viewerRole": "spectator" if viewer_id in self.spectators else "player",
+                "spectators": [{"id": member.player.id, "name": member.player.name, "connected": member.connected}
+                               for member in self.spectators.values()]}
 
 
 class InMemoryRoomRepository:
@@ -141,8 +156,9 @@ class RoomManager:
             raise RoomError("ROOM_NOT_FOUND", "房间不存在")
 
         async with room.lock:
+            members = room.spectators if intent.role == "spectator" else room.players
             if intent.player_id:
-                member = room.players.get(intent.player_id)
+                member = members.get(intent.player_id)
                 if member is None or not secrets.compare_digest(
                     member.reconnect_token, intent.reconnect_token or ""
                 ):
@@ -153,20 +169,23 @@ class RoomManager:
                 member.socket = websocket
                 player_id = member.player.id
             else:
-                if room.game_state and room.game_state.phase != "LOBBY":
+                if intent.role == "player" and room.game_state and room.game_state.phase != "LOBBY":
                     raise RoomError("GAME_ALREADY_STARTED", "比赛已开始，不能加入新玩家")
-                if len(room.players) >= 6:
+                if intent.role == "player" and len(room.players) >= 6:
                     raise RoomError("ROOM_FULL", "房间已满")
+                if intent.role == "spectator" and len(room.spectators) >= SPECTATOR_LIMIT:
+                    raise RoomError("SPECTATORS_FULL", "旁观席已满")
                 player_id = uuid4().hex
                 member = RoomPlayer(
                     player=Player(id=player_id, name=intent.player_name.strip()),
                     reconnect_token=secrets.token_urlsafe(24),
                     socket=websocket,
                 )
-                room.players[player_id] = member
-                room.game_state = room.engine.create_game(
-                    tuple(item.player for item in room.players.values())
-                )
+                members[player_id] = member
+                if intent.role == "player":
+                    room.game_state = room.engine.create_game(
+                        tuple(item.player for item in room.players.values())
+                    )
                 room.revision += 1
 
             await websocket.send_json(
@@ -181,7 +200,7 @@ class RoomManager:
                 room,
                 {
                     "type": "STATE_UPDATED",
-                    "events": [{"type": "PLAYER_JOINED", "playerId": player_id}],
+                    "events": [{"type": "SPECTATOR_JOINED" if intent.role == "spectator" else "PLAYER_JOINED", "playerId": player_id}],
                     "rollResults": [],
                 },
                 exclude=websocket,
@@ -199,6 +218,8 @@ class RoomManager:
         | AddBotIntent
         | SetVariantIntent
         | SetAutoDealIntent
+        | SetAutoPlayIntent
+        | ThrowPropIntent
         | RollStartIntent
         | DraftAthleteIntent
         | SelectRacersIntent
@@ -207,8 +228,21 @@ class RoomManager:
         | AdvanceRaceIntent,
     ) -> None:
         async with room.lock:
-            member = room.players.get(player_id)
+            member = room.member(player_id)
             if member is None:
+                return
+            if isinstance(intent, ThrowPropIntent):
+                await self._throw_prop_locked(room, member, intent)
+                return
+            if player_id in room.spectators:
+                if isinstance(intent, LeaveRoomIntent):
+                    room.spectators.pop(player_id)
+                    room.revision += 1
+                    await member.socket.send_json({"type": "ROOM_LEFT"})
+                    await self._broadcast_locked(room, {"type": "STATE_UPDATED", "events": [{"type": "SPECTATOR_LEFT", "playerId": player_id}], "rollResults": []})
+                    await member.socket.close()
+                else:
+                    await member.socket.send_json(ErrorMessage(code="SPECTATOR_READ_ONLY", message="旁观者不能进行游戏操作", actionId=intent.action_id).model_dump(by_alias=True))
                 return
             if isinstance(intent, LeaveRoomIntent):
                 if not self._lobby_open(room):
@@ -238,14 +272,58 @@ class RoomManager:
             member.seen_action_ids.add(intent.action_id)
             if len(member.seen_action_ids) > 500:
                 member.seen_action_ids = {intent.action_id}
+            if isinstance(intent, SetAutoPlayIntent):
+                member.auto_play = intent.enabled
+                room.revision += 1
+                state = room.game_state
+                if state and state.pending_decision and state.pending_decision.get("playerId") == player_id:
+                    self._sync_decision_timer_locked(room)
+                if state and state.pending_roll and state.pending_roll.get("nextPlayerId") == player_id:
+                    self._sync_roll_timer_locked(room)
+                self._sync_bot_timer_locked(room)
+                await self._broadcast_locked(room, {
+                    "type": "STATE_UPDATED", "actionId": intent.action_id,
+                    "events": [{"type": "AUTO_PLAY_CHANGED", "playerId": player_id, "enabled": intent.enabled}],
+                    "rollResults": [],
+                })
+                return
             await self._apply_intent_locked(room, member, intent)
 
+    async def _throw_prop_locked(self, room: Room, member: RoomPlayer, intent: ThrowPropIntent) -> None:
+        if intent.action_id in member.seen_action_ids:
+            await member.socket.send_json({"type": "ACTION_ACK", "actionId": intent.action_id, "revision": room.revision})
+            return
+        target = room.players.get(intent.target_player_id)
+        now = time.monotonic()
+        code = None
+        if room.game_state is None or room.game_state.phase != GamePhase.RACING:
+            code, message = "TAUNT_NOT_RACING", "比赛开始后才能使用互动道具"
+        elif target is None or target.player.id == member.player.id:
+            code, message = "INVALID_TAUNT_TARGET", "请选择房间里的其他玩家"
+        elif now < member.taunt_ready_at:
+            code, message = "TAUNT_COOLDOWN", "道具正在冷却，请稍等片刻"
+        if code:
+            await member.socket.send_json(ErrorMessage(code=code, message=message, actionId=intent.action_id).model_dump(by_alias=True))
+            return
+        member.seen_action_ids.add(intent.action_id)
+        if len(member.seen_action_ids) > 500:
+            member.seen_action_ids = {intent.action_id}
+        member.taunt_ready_at = now + TAUNT_COOLDOWN_SECONDS
+        # Cosmetic room traffic never advances the game revision or touches
+        # pending rolls, decisions, timers, or private snapshots.
+        await self._broadcast_locked(room, {
+            "type": "PROP_THROWN", "id": str(uuid4()), "actionId": intent.action_id,
+            "actorId": member.player.id, "actorName": member.player.name,
+            "targetPlayerId": target.player.id, "targetName": target.player.name,
+            "item": intent.item, "cooldownMs": TAUNT_COOLDOWN_SECONDS * 1000,
+        }, include_state=False)
+
     async def _apply_intent_locked(
-        self, room: Room, member: RoomPlayer, intent: Any
+        self, room: Room, member: RoomPlayer, intent: Any, *, automated: bool = False
     ) -> bool:
         try:
             transition = await self._execute_intent_locked(
-                room, member.player.id, intent, bot=member.is_bot
+                room, member.player.id, intent, bot=member.is_bot or automated
             )
         except GameRuleError as error:
             if member.socket is not None:
@@ -441,7 +519,7 @@ class RoomManager:
         room.decision_deadline = None
         if pending is None:
             return
-        if not self._is_bot(room, pending.get("playerId")):
+        if not self._is_automated(room, pending.get("playerId")):
             room.decision_deadline = datetime.now(UTC) + timedelta(seconds=ACTION_TIME_LIMIT_SECONDS)
         if not self.local_timers:
             return
@@ -458,7 +536,7 @@ class RoomManager:
         room.roll_deadline = None
         if pending is None:
             return
-        if not self._is_bot(room, pending.get("nextPlayerId")):
+        if not self._is_automated(room, pending.get("nextPlayerId")):
             room.roll_deadline = datetime.now(UTC) + timedelta(seconds=ACTION_TIME_LIMIT_SECONDS)
         if not self.local_timers:
             return
@@ -467,14 +545,14 @@ class RoomManager:
             name=f"roll-timeout-{room.id}",
         )
 
-    def _is_bot(self, room: Room, player_id: str | None) -> bool:
+    def _is_automated(self, room: Room, player_id: str | None) -> bool:
         member = room.players.get(player_id) if player_id else None
-        return member is not None and member.is_bot
+        return member is not None and (member.is_bot or member.auto_play)
 
     def _bot_pending_action(self, room: Room) -> tuple[str, str] | None:
         """Return (action kind, actor player id) for the next bot obligation, if any."""
         state = room.game_state
-        bots = {player_id for player_id, member in room.players.items() if member.is_bot}
+        bots = {player_id for player_id, member in room.players.items() if member.is_bot or member.auto_play}
         if state is None or not bots:
             return None
         if state.phase in (GamePhase.DRAFT_ROLL, GamePhase.RACE_ROLL):
@@ -596,14 +674,14 @@ class RoomManager:
     async def _take_bot_action_locked(self, room: Room, action: tuple[str, str]) -> None:
         kind, player_id = action
         member = room.players.get(player_id)
-        if member is None or not member.is_bot:
+        if member is None or not (member.is_bot or member.auto_play):
             room.bot_deadline = None
             return
         intent = self._build_bot_intent(room, kind, player_id)
         if intent is None:
             room.bot_deadline = None
             return
-        if not await self._apply_intent_locked(room, member, intent):
+        if not await self._apply_intent_locked(room, member, intent, automated=True):
             room.bot_deadline = None
 
     async def _roll_timeout(
@@ -737,7 +815,7 @@ class RoomManager:
 
     async def disconnect(self, room: Room, player_id: str, websocket: RoomSocket) -> None:
         async with room.lock:
-            member = room.players.get(player_id)
+            member = room.member(player_id)
             if member is None or member.socket is not websocket:
                 return
             member.connected = False
@@ -747,7 +825,7 @@ class RoomManager:
                 room,
                 {
                     "type": "STATE_UPDATED",
-                    "events": [{"type": "PLAYER_DISCONNECTED", "playerId": player_id}],
+                    "events": [{"type": "SPECTATOR_DISCONNECTED" if player_id in room.spectators else "PLAYER_DISCONNECTED", "playerId": player_id}],
                     "rollResults": [],
                 },
             )
@@ -757,13 +835,14 @@ class RoomManager:
         room: Room,
         envelope: dict[str, Any],
         exclude: RoomSocket | None = None,
+        *, include_state: bool = True,
     ) -> None:
         failed: list[RoomPlayer] = []
-        for recipient_id, member in room.players.items():
+        for recipient_id, member in (room.players | room.spectators).items():
             if not member.connected or member.socket is None or member.socket is exclude:
                 continue
             try:
-                message = {**envelope, **room.public_state(recipient_id)}
+                message = {**envelope, **room.public_state(recipient_id)} if include_state else dict(envelope)
                 await member.socket.send_json(message)
             except RuntimeError:
                 failed.append(member)

@@ -132,6 +132,7 @@ class GameState:
     history: set[int] = field(default_factory=set)
     _drawn_racers: set[RacerName] = field(default_factory=set)
     _removed_racers: set[RacerName] = field(default_factory=set)
+    previous_winners: tuple[RacerName, ...] = ()
 
     @property
     def unavailable_racers(self) -> frozenset[RacerName]:

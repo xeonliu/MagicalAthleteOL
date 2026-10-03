@@ -526,6 +526,7 @@ def push_move(
     emit_ability_triggered: EventTriggerMode = "never",
     is_main_move: bool = False,
     trigger_racer_idx: int | None = None,
+    scooch_reactors: set[int] | None = None,
 ):
     engine.push_event(
         MoveCmdEvent(
@@ -537,6 +538,7 @@ def push_move(
             responsible_racer_idx=responsible_racer_idx,
             is_main=is_main_move,
             trigger_racer_idx=trigger_racer_idx,
+            scooch_reactors=scooch_reactors if scooch_reactors is not None else set(),
         ),
     )
 

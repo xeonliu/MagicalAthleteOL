@@ -11,6 +11,7 @@ export type GamePhase =
 export interface AthleteCard {
   id: string;
   name: string;
+  copiedAthlete?: { id: string; name: string } | null;
 }
 
 export interface ActiveRacer extends AthleteCard {
@@ -28,6 +29,7 @@ export interface PlayerState {
   position: number;
   connected: boolean;
   isBot: boolean;
+  autoPlay?: boolean;
   score: number;
   selectionLocked: boolean;
   selectedAthlete: ActiveRacer | null;
@@ -46,7 +48,7 @@ export interface RaceResult {
   eliminated: boolean;
 }
 
-export interface DecisionOption { id: string; label: string; ownerName?: string; position?: number }
+export interface DecisionOption { id: string; label: string; ownerName?: string; position?: number; athlete?: AthleteCard }
 export interface RollPreview {
   rollSerial: number;
   value: number;
@@ -111,6 +113,7 @@ export interface GameState {
   draftRoundCount: number;
   rollCandidateIds: string[];
   raceResults: RaceResult[];
+  previousWinners?: AthleteCard[];
   pendingDecision: PendingDecision | null;
   pendingRoll: PendingRoll | null;
   raceLog: GameEvent[];
@@ -121,6 +124,8 @@ export interface RoomSnapshot {
   roomId: string;
   revision: number;
   game: GameState;
+  viewerRole?: "player" | "spectator";
+  spectators?: { id: string; name: string; connected: boolean }[];
 }
 
 export interface DiceRollResult {
@@ -140,7 +145,20 @@ export interface DiceRollResult {
   throwCount?: number;
 }
 
+export type PropItem = "egg" | "tomato";
+export interface PropThrow {
+  type: "PROP_THROWN";
+  id: string;
+  actorId: string;
+  actorName: string;
+  targetPlayerId: string;
+  targetName: string;
+  item: PropItem;
+  cooldownMs: number;
+}
+
 export type ServerMessage =
+  | PropThrow
   | { type: "ROOM_LEFT" }
   | { type: "KICKED" }
   | (RoomSnapshot & { type: "WELCOME"; playerId: string; reconnectToken: string })
@@ -198,10 +216,12 @@ export type ClientIntent =
   | { type: "LEAVE_ROOM"; actionId: string }
   | { type: "KICK_PLAYER"; actionId: string; targetPlayerId: string }
   | { type: "ADD_BOT"; actionId: string }
-  | { type: "JOIN_ROOM"; roomId: string; playerName: string; playerId?: string; reconnectToken?: string }
+  | { type: "JOIN_ROOM"; roomId: string; playerName: string; playerId?: string; reconnectToken?: string; role?: "player" | "spectator" }
   | { type: "START_GAME"; actionId: string }
   | { type: "SET_VARIANT"; actionId: string; doubleRacer: boolean }
   | { type: "SET_AUTO_DEAL"; actionId: string; autoDeal: boolean }
+  | { type: "SET_AUTO_PLAY"; actionId: string; enabled: boolean }
+  | { type: "THROW_PROP"; actionId: string; targetPlayerId: string; item: PropItem }
   | { type: "ROLL_START"; actionId: string }
   | { type: "DRAFT_ATHLETE"; actionId: string; athleteId: string }
   | { type: "SELECT_RACERS"; actionId: string; athleteIds: string[] }

@@ -6,7 +6,7 @@ import { abilityTitleText, decisionOptionLabel } from "./decisionPresentation";
 import type { GameEvent, PlayerState, RoomSnapshot } from "./protocol";
 
 export type Participant = { playerId?: string; athleteId?: string; name: string; owner: string };
-export type ActionMoment = { source: Participant; target: Participant; cause: string; effect: string; from?: number; to?: number };
+export type ActionMoment = { source: Participant; target: Participant; cause: string; effect: string; scoreAmount?: number; from?: number; to?: number };
 
 // The wire name is the English card face, so it only stands in when the catalog
 // has no entry for the racer id.
@@ -230,4 +230,18 @@ export function rollOffPresentation(
       ? t("race:rollOff.tie", { names: tie.playerIds?.map(name).join(t("race:listSeparator")) })
       : "";
   return { display, outcome, winnerId: winner?.playerId };
+}
+
+// Landing feedback comes from the existing movement endpoint, never intermediate steps.
+export function landingScoreMoment(event: GameEvent, trackName: string, players: PlayerState[], t: TFunction = i18n.t): ActionMoment | null {
+  if (trackName !== "WildWilds" || !["RACER_MOVED", "RACER_WARPED"].includes(event.type)
+    || (event.to !== 1 && event.to !== 13) || event.from === event.to) return null;
+  const racer = players.find(p => p.id === event.playerId)?.activeRacers.find(r => r.id === event.athleteId);
+  if (!racer || racer.finished || racer.eliminated) return null;
+  const target = participant(t, players, event.playerId, event.athleteId);
+  return {
+    source: { name: t("race:source.tile"), owner: "" }, target,
+    cause: t("race:moment.cause.VictoryPointTile", { target: target.name }),
+    effect: t("race:moment.effect.scored", { count: 1 }), scoreAmount: 1,
+  };
 }

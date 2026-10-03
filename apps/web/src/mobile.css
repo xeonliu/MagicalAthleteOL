@@ -1,0 +1,104 @@
+/* On small screens the board and controls take their own rows. Scrolling
+   exposes every card and action instead of clipping a fixed desktop overlay. */
+.race-moment-slot { display: contents; }
+
+@media (max-width: 700px), (max-height: 500px) and (max-width: 980px) {
+  .topbar, .immersive-race .topbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+  .wordmark { font-size: .8rem; }
+  .room-code { flex-wrap: wrap; justify-content: flex-start; gap: 6px; min-width: 0; max-width: 100%; }
+  .room-code strong { font-size: .9rem; }
+  .race-progress { display: none; }
+  .immersive-race { position: relative; inset: auto; height: auto; min-height: 100dvh; overflow: visible; padding-bottom: max(16px, env(safe-area-inset-bottom)); --feed-shift: 0px; }
+  .immersive-race.feed-sidebar-open { --feed-shift: 0px; }
+  .immersive-race .topbar { position: relative; inset: auto; margin: 8px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 8px; gap: 6px; padding: 8px; align-items: center; }
+  .immersive-race .topbar .wordmark { grid-column: 1 / span 2; grid-row: 1; font-size: .7rem; min-width: 0; }
+  .immersive-race .topbar .room-code { display: contents; }
+  .immersive-race .topbar .language-switcher { grid-column: 3; grid-row: 1; justify-self: end; gap: 3px; }
+  .immersive-race .topbar .language-switcher button { min-height: 30px; padding: 3px 5px; font-size: .65rem; }
+  .immersive-race .topbar .room-code > small { display: none; }
+  .immersive-race .topbar .room-code > strong { grid-column: 4; grid-row: 1; justify-self: end; font-size: .85rem; }
+  .immersive-race .topbar .status-dot { grid-column: 5; grid-row: 1; width: 8px; height: 8px; }
+  .immersive-race .topbar .room-code > button { grid-row: 2; min-width: 0; min-height: 44px; padding: 5px 6px; font-size: .7rem; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .immersive-race .topbar .music-toggle { grid-column: 1; }
+  .immersive-race .topbar .taunt-toggle { grid-column: 2; }
+  .immersive-race .topbar .auto-play-toggle { grid-column: 3; }
+  .immersive-race .topbar .feed-toggle { grid-column: 4 / span 2; font-size: .65rem; }
+  .immersive-race .topbar .event-feed-count { min-width: 0; padding: 2px 4px; font-size: .65rem; }
+  .immersive-race .spectator-bar { position: relative; inset: auto; margin: 8px; }
+  .immersive-race .race-stage { position: relative; inset: auto; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "heading" "board" "standings" "scores" "details" "racers"; gap: 12px; }
+  .immersive-race .race-heading { grid-area: heading; }
+  .immersive-race .race-table-3d, .immersive-race .race-table-loading, .immersive-race .track-wrap { grid-area: board; }
+  .immersive-race .race-leaderboard { grid-area: standings; }
+  .immersive-race .race-console { grid-area: scores; }
+  .immersive-race .race-details-toggle { grid-area: details; justify-self: start; }
+  .immersive-race .race-roster { grid-area: racers; }
+  .immersive-race .race-heading, .immersive-race:has(.spectator-bar) .race-heading { position: relative; inset: auto; order: 0; margin: 0 12px; }
+  .immersive-race .race-table-3d, .immersive-race .race-table-loading { position: relative; inset: auto; order: 2; width: 100%; height: clamp(360px, 65dvh, 560px); min-height: 0; }
+  .immersive-race .race-table-viewport { height: 100%; }
+  .immersive-race .race-console, .immersive-race:has(.spectator-bar) .race-console { position: relative; inset: auto; order: 4; margin: 0 12px; }
+  .immersive-race .score-strip { flex-wrap: wrap; }
+  .immersive-race .race-leaderboard, .immersive-race:has(.spectator-bar) .race-leaderboard { position: relative; inset: auto; order: 3; width: auto; margin: 0 12px; max-height: none; }
+  .immersive-race .race-leaderboard ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; overflow: visible; }
+  .immersive-race .race-leaderboard li { min-width: 0; }
+  .standing-player > strong { white-space: normal; overflow-wrap: anywhere; }
+  .immersive-race .race-details-toggle { position: relative; inset: auto; order: 5; margin: 0 12px; align-self: start; }
+  .immersive-race .race-roster { position: relative; inset: auto; order: 6; margin: 0 12px; max-height: 60dvh; }
+  .immersive-race .camera-controls { right: 12px; bottom: 80px; }
+  .immersive-race .table-dice-hud { bottom: 12px; width: calc(100% - 24px); max-width: none; padding: 8px; flex-wrap: wrap; }
+  .immersive-race .race-feed { position: fixed; z-index: 25; height: 100dvh; transform: none; opacity: 0; pointer-events: none; transition: opacity .2s ease, visibility .2s; }
+  .immersive-race .race-feed.open { opacity: 1; pointer-events: auto; }
+  .decision-backdrop { padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); }
+  .decision-dialog, .immersive-race .decision-dialog { max-height: calc(100dvh - 24px); padding: 14px; gap: 12px; border-width: 3px; overscroll-behavior: contain; }
+  .decision-dialog header { gap: 8px; }
+  .decision-dialog h2 { font-size: 1.35rem; overflow-wrap: anywhere; }
+  .decision-options { grid-template-columns: minmax(0, 1fr); }
+  .decision-options button { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+  .ability-banner { top: 12px; }
+
+  /* Share the board's grid cell, using its existing upper blank area rather
+     than inserting a new row. The whole cell scrolls with the page. */
+  .immersive-race .race-moment-slot { display: grid; grid-area: board; align-self: start; justify-self: center; z-index: 4; width: min(320px, calc(100% - 40px)); margin: 12px 0; min-height: 112px; pointer-events: none; }
+  .immersive-race .race-moment-slot .action-moment {
+    position: relative; inset: auto; transform: none; z-index: auto;
+    width: 100%; min-height: 112px; max-height: none; overflow: visible;
+    display: grid; align-content: center; padding: 8px 10px;
+    border: 1px solid #e5dac0; border-left: 4px solid #e5b52d; border-radius: 16px;
+    background: #fffdf7; box-shadow: 0 4px 14px #47371b0c; pointer-events: none;
+  }
+  .immersive-race .action-moment p { margin-bottom: 5px; font-size: .8rem; line-height: 1.25; }
+  .immersive-race .moment-flow { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr); gap: 8px; }
+  .immersive-race .moment-actor { gap: 1px; }
+  .immersive-race .moment-actor img, .immersive-race .moment-symbol { width: 28px; height: 28px; }
+  .immersive-race .moment-symbol { font-size: 24px; line-height: 25px; }
+  .immersive-race .moment-actor strong { font-size: .75rem; line-height: 1.2; }
+  .immersive-race .moment-actor small { font-size: .65rem; line-height: 1.2; }
+  .immersive-race .moment-effect { font-size: .85rem; line-height: 1.4; }
+  .immersive-race .moment-positions { flex-wrap: wrap; }
+  .immersive-race { background: linear-gradient(180deg, #f8f5ed, #eee8da); }
+  .immersive-race .topbar { border: 1px solid #fff2; border-radius: 14px; box-shadow: 0 3px 12px #24242712; }
+  .immersive-race .race-heading { padding: 8px 0 0; align-items: center; gap: 12px; }
+  .immersive-race .race-heading h2 { font-size: 1.6rem; line-height: 1.1; text-shadow: none; }
+  .immersive-race .race-heading .kicker { margin-bottom: 6px; font-size: .65rem; }
+  .immersive-race .reward { gap: 6px; flex-shrink: 0; }
+  .immersive-race .reward span { min-width: 0; padding: 8px 10px; border-width: 1px; border-radius: 10px; box-shadow: 2px 2px 0 #242427; font-size: .85rem; }
+  .immersive-race .race-table-3d { border: 1px solid #d9d0bd; border-radius: 18px; overflow: hidden; }
+  .immersive-race .race-leaderboard { padding: 12px; border-color: #e1d9ca; border-radius: 16px; background: #fffdf8; box-shadow: 0 4px 14px #47371b0c; }
+  .immersive-race .race-leaderboard h3 { margin-bottom: 10px; font-size: .85rem; }
+  .immersive-race .race-leaderboard ol { gap: 6px; }
+  .immersive-race .race-leaderboard li { padding: 8px 6px; border: 1px solid #eee8dc; background: #f7f4ed; }
+  .immersive-race .race-leaderboard li.active { border-color: #e5c65d; background: #fff3c3; }
+  .immersive-race .score-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; overflow: visible; padding: 0; }
+  .immersive-race .score-strip > div { min-width: 0; padding: 10px; border-color: #ddd5c5; border-radius: 12px; background: #fffdf8; }
+  .immersive-race .score-strip strong { min-width: 0; overflow-wrap: anywhere; }
+  .immersive-race .camera-controls button, .immersive-race .race-details-toggle, .immersive-race .dice-throw-button { min-height: 44px; }
+  .immersive-race .race-details-toggle { padding: 10px 16px; border: 1px solid #d9d0bd; border-radius: 12px; color: #343128; background: #fffdf8; box-shadow: 0 3px 10px #47371b0c; }
+  .decision-dialog, .immersive-race .decision-dialog { border: 1px solid #d9d0bd; border-radius: 18px; box-shadow: 0 12px 40px #0003; }
+  .decision-options button { min-height: 48px; padding: 12px; border-width: 1px; border-radius: 12px; box-shadow: 0 2px 0 #d2ba68; }
+}
+
+@media (max-height: 500px) and (min-width: 701px) and (max-width: 980px) {
+  .immersive-race .topbar { display: flex; flex-wrap: nowrap; gap: 6px; padding: 6px 8px; }
+  .immersive-race .topbar .wordmark { flex: 1; }
+  .immersive-race .topbar .room-code > button { flex: 0 0 auto; padding: 5px 8px; }
+  .immersive-race .topbar .language-switcher { margin-left: 2px; }
+}

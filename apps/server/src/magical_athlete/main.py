@@ -66,7 +66,7 @@ async def room_socket(websocket: WebSocket) -> None:
                 )
                 continue
             await rooms.handle_intent(room, player_id, intent)
-            if player_id not in room.players:
+            if room.member(player_id) is None:
                 break
     except ValidationError:
         await websocket.send_json(

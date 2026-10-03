@@ -1,0 +1,28 @@
+/* Portal to the page root, above the board, island, feed and decision surfaces. */
+.race-roster-layer { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: #302b224d; backdrop-filter: blur(6px); }
+.race-roster-panel { position: relative; width: min(1100px, 100%); max-height: 86dvh; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #ded7c7; border-radius: 24px; color: #282e2b; background: #f5f3ed; box-shadow: 0 24px 80px #302b2233; }
+.race-roster-panel:focus { outline: none; }
+.race-roster-close { position: sticky; top: 12px; z-index: 10; display: block; margin: 12px 12px -56px auto; width: 44px; height: 44px; border: 1px solid #ded7c7; border-radius: 50%; background: #fffefa; color: #687164; font-size: 24px; }
+.race-roster-panel .race-roster { margin: 0; padding: 26px; border: 0; }
+.race-roster-panel .race-roster-heading { display: grid; gap: 6px; padding-right: 48px; margin-bottom: 24px; }
+.race-roster-panel .race-roster-heading .kicker { color: #85877e; font-size: .65rem; }
+.race-roster-panel .race-roster-heading h3 { font-family: inherit; font-size: 1.5rem; }
+.race-roster-panel .race-roster-scroll { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 24px; padding: 0; overflow: visible; }
+.race-roster-panel .racer-owner { min-width: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.race-roster-panel .racer-owner.active { background: transparent; box-shadow: none; }
+.race-roster-panel .racer-owner > header { margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid #e4dfd2; }
+.race-roster-panel .racer-owner.active > header { color: #896313; }
+.race-roster-panel .racer-owner > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.race-roster-card .racer-card-with-rules { height: 100%; }
+.race-roster-card .racer-rules-button { left: 4px; right: auto; top: auto; bottom: 6px; min-height: 36px; padding: 5px 12px; color: #966f56; background: none; border: 0; border-radius: 8px; font-size: .72rem; }
+.race-roster-card .copied-from { font-size: .72rem; color: #896313; }
+.roster-racer-status { justify-self: start; padding: 4px 8px; border-radius: 8px; color: #765514; background: #f8ebc7; font-size: .7rem; }
+.race-roster-close:focus-visible, .race-roster-card .racer-rules-button:focus-visible { outline: 3px solid #dcab71; outline-offset: 2px; }
+@media (max-width: 700px) {
+  .race-roster-layer { padding-left: 10px; padding-right: 10px; }
+  .race-roster-panel { max-height: 90dvh; border-radius: 20px; }
+  .race-roster-panel .race-roster { padding: 20px 14px; }
+}
+
+.race-roster-panel .racer-owner > header small { border: 1px solid #ded7c7; border-radius: 8px; color: #72786f; font-weight: 600; }
+body:has(.race-roster-layer) .racer-rules-tooltip { border: 1px solid #dedfd6; border-radius: 16px; color: #282e2b; background: #fffefa; box-shadow: 0 8px 24px #25302020; line-height: 1.8; }

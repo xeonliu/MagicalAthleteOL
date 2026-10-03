@@ -14,7 +14,7 @@ from magsim.core.events import (
     AbilityTriggeredEventOrSkipped,
     GameEvent,
     MainMoveSkippedEvent,
-    RollModificationWindowEvent,
+    RollResultEvent,
     TurnStartEvent,
 )
 
@@ -30,7 +30,7 @@ class AbilityGenius(Ability, SelectionDecisionMixin[int]):
     name: AbilityName = "GeniusPrediction"
     triggers: tuple[type[GameEvent], ...] = (
         TurnStartEvent,
-        RollModificationWindowEvent,
+        RollResultEvent,
     )
     preferred_dice: D6VAlueSet = frozenset([6])
 
@@ -46,7 +46,7 @@ class AbilityGenius(Ability, SelectionDecisionMixin[int]):
         agent: Agent,
     ) -> AbilityTriggeredEventOrSkipped:
         if (
-            not isinstance(event, (TurnStartEvent, RollModificationWindowEvent))
+            not isinstance(event, (TurnStartEvent, RollResultEvent))
             or event.target_racer_idx != owner.idx
         ):
             return "skip_trigger"
@@ -79,8 +79,9 @@ class AbilityGenius(Ability, SelectionDecisionMixin[int]):
                 target_racer_idx=owner.idx,
             )
 
-        # 2. Check Phase (Roll Window)
-        elif self.prediction is not None and event.current_roll_val == self.prediction:
+        # Check the resolved die face, after any rerolls. Movement bonuses and
+        # overrides are not dice results; a skipped roll has dice_value=None.
+        elif self.prediction is not None and event.dice_value == self.prediction:
             engine.log_info(
                 f"{self.name}: Prediction correct! {owner.repr} gets an extra turn.",
             )

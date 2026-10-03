@@ -15,6 +15,9 @@ OUTPUT = ROOT / "apps/web/public/assets/boards"
 OUTPUT.mkdir(parents=True, exist_ok=True)
 photos = {name: Image.open(ROOT / f"docs/{name}.png").convert("RGB")
           for name in ("mildmile", "wildwilds")}
+mild_left = Image.open(ROOT / "docs/mildmile-print-left.png").convert("RGB")
+mild_right = Image.open(ROOT / "docs/mildmile-print-right.png").convert("RGB")
+wild_print = Image.open(ROOT / "docs/wildwilds-print-board.png").convert("RGB")
 atlas = Image.new("RGBA", (2048, 1024))
 regions = {}
 
@@ -39,40 +42,71 @@ def extract(name, source, quad, destination, size, clean_black=False, transparen
     regions[name] = [*destination, *size]
 
 
-extract("mild", "mildmile", (191, 138, 162, 258, 1220, 258, 1184, 138),
-        (0, 0), (1960, 280), clean_black=True)
-extract("wild", "wildwilds", (181, 163, 144, 295, 1346, 295, 1311, 163),
-        (0, 288), (1960, 280), clean_black=True)
-extract("podium", "wildwilds", (66, 176, 38, 294, 135, 294, 158, 176),
-        (0, 580), (164, 232), clean_black=True)
-extract("start", "mildmile", (162, 76, 157, 120, 291, 120, 292, 76),
-        (170, 580), (268, 88), transparent_blue=True)
+def crop_print(name, image, box, destination, transparent_red=False):
+    patch = image.crop(box).convert("RGBA")
+    pixels = np.array(patch)
+    if transparent_red:
+        red = ((pixels[:, :, 0].astype(float) > pixels[:, :, 1] * 1.4)
+               & (pixels[:, :, 0].astype(float) > pixels[:, :, 2] * 1.6))
+        pixels[red, 3] = 0
+    atlas.paste(Image.fromarray(pixels), destination)
+    regions[name] = [*destination, patch.width, patch.height]
 
-# Corners follow each printed tile, correcting the oblique camera angle.
+
+mild_left_art = mild_left.crop((300, 345, 1868, 680))
+mild_right_art = mild_right.crop((0, 345, 960, 680))
+mild_art = Image.new("RGB", (mild_left_art.width + mild_right_art.width, mild_left_art.height))
+mild_art.paste(mild_left_art, (0, 0))
+mild_art.paste(mild_right_art, (mild_left_art.width, 0))
+mild_art = mild_art.resize((1960, 280), Image.Resampling.LANCZOS).convert("RGBA")
+atlas.paste(mild_art, (0, 0))
+regions["mild"] = [0, 0, 1960, 280]
+
+wild_art = wild_print.crop((165, 190, 1632, 378)).resize(
+    (1960, 280), Image.Resampling.LANCZOS).convert("RGBA")
+atlas.paste(wild_art, (0, 288))
+regions["wild"] = [0, 288, 1960, 280]
+
+podium = mild_left.crop((70, 350, 300, 680)).resize((164, 232), Image.Resampling.LANCZOS)
+atlas.paste(podium.convert("RGBA"), (0, 580))
+regions["podium"] = [0, 580, 164, 232]
+
+start = np.array(mild_left.crop((176, 105, 610, 250)).convert("RGBA"))
+blue = ((start[:, :, 2].astype(float) > start[:, :, 0] * 1.12)
+        & (start[:, :, 2].astype(float) > start[:, :, 1] * 1.12))
+start[blue, 3] = 0
+start = Image.fromarray(start).resize((268, 88), Image.Resampling.LANCZOS)
+atlas.paste(start, (170, 580))
+regions["start"] = [170, 580, 268, 88]
+
+# Source rectangles include each printed tile's full border and lettering.
 special = {
-    1: (360, 88, 347, 150, 439, 150, 446, 88),
-    5: (710, 91, 708, 152, 789, 152, 786, 91),
-    7: (879, 92, 883, 153, 957, 153, 949, 92),
-    11: (1223, 93, 1237, 151, 1312, 151, 1294, 93),
-    13: (1327, 157, 1345, 222, 1414, 222, 1392, 157),
-    16: (1263, 312, 1281, 383, 1380, 383, 1356, 312),
-    17: (1178, 311, 1191, 382, 1278, 382, 1260, 311),
-    23: (611, 310, 604, 380, 696, 380, 700, 310),
-    24: (518, 310, 508, 380, 602, 380, 609, 310),
-    26: (328, 310, 310, 379, 408, 379, 421, 310),
+    1: (383, 40, 500, 159),
+    5: (846, 40, 956, 159),
+    7: (1073, 40, 1182, 159),
+    11: (1531, 40, 1640, 159),
+    13: (1644, 162, 1755, 280),
+    16: (1531, 394, 1640, 509),
+    17: (1302, 394, 1413, 509),
+    23: (731, 394, 840, 509),
+    24: (618, 394, 727, 509),
+    26: (390, 394, 500, 509),
 }
-for index, (step, quad) in enumerate(special.items()):
-    extract(f"tile-{step}", "wildwilds", quad,
-            (460 + index * 150, 580), (144, 144))
+for index, (step, bounds) in enumerate(special.items()):
+    tile = wild_print.crop(bounds).resize((144, 144), Image.Resampling.LANCZOS)
+    destination = (460 + index * 150, 580)
+    atlas.paste(tile.convert("RGBA"), destination)
+    regions[f"tile-{step}"] = [*destination, 144, 144]
 
-for index, (step, box) in enumerate({
-    5: (673, 83, 704, 116), 10: (1046, 82, 1095, 118),
-    15: (1253, 283, 1313, 318), 20: (829, 282, 887, 319),
-    25: (413, 283, 469, 321),
-}.items()):
-    x0, y0, x1, y1 = box
-    extract(f"number-{step}", "mildmile", (x0, y0, x0, y1, x1, y1, x1, y0),
-            (460 + index * 150, 750), ((x1 - x0) * 2, (y1 - y0) * 2), transparent_red=True)
+number_crops = {
+    5: (mild_left, (1555, 124, 1638, 230)),
+    10: (mild_right, (688, 124, 816, 230)),
+    15: (mild_right, (1092, 744, 1222, 852)),
+    20: (mild_right, (75, 744, 212, 852)),
+    25: (mild_left, (924, 742, 1064, 852)),
+}
+for index, (step, (source, bounds)) in enumerate(number_crops.items()):
+    crop_print(f"number-{step}", source, bounds, (460 + index * 150, 750), transparent_red=True)
 
 atlas.save(OUTPUT / "print-atlas.webp", quality=94, method=6)
 (ROOT / "apps/web/src/components/race3d/boardAtlas.json").write_text(

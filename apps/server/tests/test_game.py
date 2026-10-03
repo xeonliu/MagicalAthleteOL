@@ -434,7 +434,7 @@ def test_long_legs_jog_skips_the_roll_and_moves_five() -> None:
     assert decision is not None
     assert decision["abilityName"] == "LongLegs"
     assert decision["choiceType"] == "BOOLEAN"
-    assert [option["label"] for option in decision["options"]] == ["不使用", "使用"]
+    assert [option["label"] for option in decision["options"]] == ["skip", "use"]
     with pytest.raises(GameRuleError, match="先完成当前技能选择"):
         engine.roll_dice(state, "p0")
 

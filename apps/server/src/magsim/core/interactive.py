@@ -151,7 +151,7 @@ class PendingChoice:
             for index, label in enumerate(self.option_labels)
         ]
         if self.ability_name in OPTIONAL_SELECTION_ABILITIES:
-            options.append({"id": "skip", "label": "不使用"})
+            options.append({"id": "skip", "label": "skip"})
         return options
 
 
@@ -203,7 +203,9 @@ class DecisionBroker:
                 id=uuid4().hex,
                 racer_idx=ctx.source_racer_idx,
                 ability_name=ability_name,
-                prompt=f"请选择 {ability_name} 的效果",
+                # Keep this field for wire compatibility; the client translates
+                # the stable ability_name instead of receiving display text here.
+                prompt="",
                 choice_type=choice_type,
                 options=options,
                 option_labels=labels,
@@ -305,7 +307,7 @@ class InteractiveAgent(Agent):
             self.broker.request(
                 ctx,
                 (False, True),
-                ("不使用", "使用"),
+                ("skip", "use"),
                 "BOOLEAN",
             )
         )

@@ -1,0 +1,21 @@
+/* Optional scenery only; all card rules and game labels remain live text. */
+html.festival-art .entry { background: #e9d9ad url("/assets/art-pack/festival-background.webp") center / cover no-repeat; }
+html.festival-art .entry-shade { background: linear-gradient(100deg, #102d32b8, #102d321a 85%); }
+html.festival-art .table { background: linear-gradient(#faf7f0eb, #faf7f0e8), url("/assets/art-pack/festival-background.webp") center top / cover no-repeat; }
+html.festival-art .race-table-3d, html.festival-art .immersive-race .race-table-3d {
+  background: linear-gradient(#faf7f035, #faf7f000 65%), #e6d4aa url("/assets/art-pack/festival-background.webp") center / cover no-repeat;
+}
+html.festival-art .selection-card { border-color: #dfd6bd; background: linear-gradient(145deg, #fffefa, #f8f2e6); box-shadow: 0 5px 16px #493c2110; }
+html.festival-art .selection-art { background: radial-gradient(ellipse at center, #fff8e3, #f1e8d72b 65%, transparent 70%); border-bottom: 1px solid #e8dfca; }
+html.festival-art .selection-art::before { box-shadow: 0 0 0 6px #fff9, 0 0 0 7px #dbcfa980; }
+html.festival-art .selection-art img { filter: drop-shadow(0 3px 2px #47391f26); }
+html.festival-art .selection-skill { color: #8c6533; }
+html.festival-art .selection-card[aria-pressed="true"] { border-color: #c39535; box-shadow: inset 0 0 0 1px #c39535, 0 6px 16px #ad7a1720; }
+html.festival-art .selection-copy { background: #fffdf8; }
+html.festival-art .racer-card { border-radius: 12px; border-color: #493d29; box-shadow: 0 5px 16px #493c211f; }
+html.festival-art .racer-portrait { border-radius: 7px 7px 0 0; }
+html.festival-art .ability-panel { background: #fffdf5; }
+@media (max-width: 700px), (max-height: 500px) and (max-width: 980px) {
+  html.festival-art .immersive-race { background: linear-gradient(#faf7f0ee, #f1eaddf0), url("/assets/art-pack/festival-background.webp") center top / cover no-repeat; }
+  html.festival-art .selection-card { border-radius: 14px; }
+}
