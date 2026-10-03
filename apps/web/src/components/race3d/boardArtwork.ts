@@ -14,14 +14,6 @@ const TILE = {
   blue: "#659bd8", red: "#ef391f",
 } as const;
 const MILD_COLORS = [TILE.pink, "#fab61a", "#48a439", "#669cd9", TILE.red];
-const WILD_COLORS = [
-  TILE.blue, TILE.red, TILE.blue, TILE.green, TILE.yellow,
-  TILE.red, TILE.red, TILE.green, TILE.green, TILE.yellow,
-  TILE.pink, TILE.green, TILE.blue, TILE.red, TILE.yellow,
-  TILE.pink, TILE.red, TILE.blue, TILE.yellow, TILE.yellow,
-  TILE.pink, TILE.red, TILE.blue, TILE.green, TILE.red,
-  TILE.pink, TILE.red, TILE.blue, TILE.green, TILE.yellow,
-];
 const WILD_LABEL_KEYS: Record<number, string | null> = {
   5: "board.trip", 17: "board.trip", 26: "board.trip",
 };
@@ -111,7 +103,7 @@ export function drawBoardArtwork(context: CanvasRenderingContext2D, track: Track
   context.clip();
   for (let step = 0; step < 30; step += 1) {
     const { x, y, width: w, height: h } = referenceRectForStep(step);
-    context.fillStyle = wild ? WILD_COLORS[step] : step === 0 ? MILD_COLORS[3] : MILD_COLORS[(step - 1) % MILD_COLORS.length];
+    context.fillStyle = step === 0 ? MILD_COLORS[3] : MILD_COLORS[(step - 1) % MILD_COLORS.length];
     context.fillRect(x, y, w, h);
     context.strokeStyle = INK;
     context.lineWidth = 3;
