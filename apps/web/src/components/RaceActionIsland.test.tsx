@@ -41,3 +41,37 @@ it("prioritizes interactive decisions over playback and retains their descriptio
   expect(view!.root.findByType(ActionMoment).props.moment).toBe(moment);
   act(() => view!.unmount());
 });
+
+it("caps the desktop island inside the button gap as the stage shrinks", () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("window", { setTimeout, clearTimeout, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  let remeasure = () => {};
+  const disconnect = vi.fn();
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(callback: () => void) { remeasure = callback; }
+    observe() {}
+    disconnect = disconnect;
+  });
+  let rightEdge = 1000;
+  const leftButton = { getBoundingClientRect: () => ({ right: 220 }) };
+  const rightButtons = { getBoundingClientRect: () => ({ left: rightEdge }) };
+  const stage = { getBoundingClientRect: () => ({ left: 0, width: 1200 }), querySelector: (selector: string) => selector === ".race-details-toggle" ? leftButton : rightButtons };
+  const properties = new Map<string, string>();
+  const shell = { closest: () => stage, style: { setProperty: (name: string, value: string) => properties.set(name, value) } };
+  let view: ReturnType<typeof create>;
+  act(() => { view = create(<RaceActionIsland busy={false} status="Ready"><button>Roll</button></RaceActionIsland>, {
+    createNodeMock: element => element.props.className?.includes("table-dice-hud") ? shell : null,
+  }); });
+  const assertClearance = () => {
+    const width = parseFloat(properties.get("--island-available-width")!);
+    const center = parseFloat(properties.get("--island-center")!);
+    expect(center - width / 2).toBeGreaterThanOrEqual(236);
+    expect(center + width / 2).toBeLessThanOrEqual(rightEdge - 16);
+  };
+  assertClearance();
+  rightEdge = 680;
+  act(() => remeasure());
+  assertClearance();
+  act(() => view!.unmount());
+  expect(disconnect).toHaveBeenCalledOnce();
+});

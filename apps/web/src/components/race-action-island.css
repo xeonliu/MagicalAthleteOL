@@ -3,9 +3,9 @@
 .immersive-race .table-dice-hud.race-action-island {
   --island-spring: cubic-bezier(.22, 1.28, .36, 1);
   --island-panel-height: min(42dvh, 320px);
-  position: absolute; z-index: 5; left: 50%; top: auto;
-  bottom: max(84px, calc(env(safe-area-inset-bottom) + 76px));
-  display: block; width: 300px; max-width: calc(100% - 24px); min-height: 0;
+  position: absolute; z-index: 5; left: var(--island-center, 50%); top: auto;
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+  display: block; width: 300px; max-width: var(--island-available-width, calc(100% - 24px)); min-height: 0;
   padding: 0; overflow: hidden; transform: translateX(-50%);
   color: #343128; background: #fffdf7f5; border: 1px solid #ded5c3;
   border-radius: 32px; box-shadow: 0 8px 28px #47371b1a, inset 0 1px 0 #fff;
@@ -45,8 +45,14 @@
 @keyframes island-roll { 0%, 100% { transform: rotate(-12deg) scale(.94); } 50% { transform: rotate(18deg) scale(1.08); } }
 @keyframes island-pulse { from { opacity: .3; } to { opacity: 1; } }
 @media (max-width: 700px), (max-height: 500px) and (max-width: 980px) {
-  .immersive-race .table-dice-hud.race-action-island { bottom: 76px; --island-panel-height: min(40dvh, 240px); }
-  .immersive-race .race-action-island .action-moment { padding: 14px; }
+  .table-dice-hud.race-action-island,
+  .immersive-race .table-dice-hud.race-action-island {
+    position: fixed; z-index: 20; left: 50%; bottom: max(12px, env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px); --island-panel-height: min(45dvh, 320px);
+    touch-action: pan-y;
+  }
+  .immersive-race:has(.race-stage) { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+  .race-action-island .action-moment { padding: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .table-dice-hud.race-action-island, .island-controls, .island-expansion { transition: none; }
@@ -74,11 +80,10 @@
 .race-action-island .decision-options .command.decision-chosen { opacity: 1; border-color: #a17b22; background: #ffe7a1; box-shadow: inset 0 0 0 1px #a17b22; }
 .race-action-island .decision-option-detail { display: block; margin-top: 6px; line-height: 1.5; }
 @media (max-width: 700px), (max-height: 500px) and (max-width: 980px) {
-  .immersive-race .race-action-island .decision-dialog { padding: 16px; }
+  .race-action-island .decision-dialog { padding: 16px; }
 }
 
-/* Reserve a separate bottom row for tools. The island's fixed bottom edge
-   stays above it even while the spring overshoots upwards or sideways. */
+/* Desktop controls share one baseline; the measured gap caps spring width. */
 .immersive-race .race-stage .camera-controls,
 .immersive-race .race-stage .race-details-toggle {
   bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
